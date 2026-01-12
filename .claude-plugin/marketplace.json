@@ -1,0 +1,16 @@
+{
+  "name": "ralph-prd-marketplace",
+  "owner": {
+    "name": "arian88"
+  },
+  "description": "Ralph PRD Generator skills for Claude Code",
+  "plugins": [
+    {
+      "name": "ralph-prd",
+      "source": ".",
+      "version": "1.0.0",
+      "description": "Generate PRDs and convert them to JSON for autonomous implementation with Ralph",
+      "keywords": ["prd", "product-requirements", "automation", "planning", "ralph"]
+    }
+  ]
+}

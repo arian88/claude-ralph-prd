@@ -1,0 +1,179 @@
+# Ralph Agent System
+
+Ralph is an autonomous coding agent that implements features from PRDs iteratively. Each iteration spawns a fresh Claude instance with clean context. Memory persists via git history, `progress.md`, and `prd.json`.
+
+Based on [Geoffrey Huntley's Ralph pattern](https://ghuntley.com/ralph/). Original repo: [snarktank/ralph](https://github.com/snarktank/ralph)
+
+## Workflow Example
+
+```bash
+# Step 1: Create a PRD for your feature
+/ralph-prd Add task priority levels to the app
+
+# Step 2: Answer the clarifying questions, PRD saved to:
+#         ./docs/prd/task-priority/prd.md
+
+# Step 3: Convert PRD to JSON for Ralph
+/ralph-prd convert ./docs/prd/task-priority/prd.md
+
+# Step 4: Run Ralph (autonomous loop)
+./skills/ralph-prd/scripts/ralph.sh ./docs/prd/task-priority/
+
+# Optional: Run with more iterations
+./skills/ralph-prd/scripts/ralph.sh ./docs/prd/task-priority/ --max-iterations 15
+
+# Optional: Use amp instead of claude
+./skills/ralph-prd/scripts/ralph.sh ./docs/prd/task-priority/ --tool amp --max-iterations 5
+```
+
+> **Note:** Script path depends on installation method:
+> - Plugin installation: Skills are automatically available
+> - Template clone to `.claude/`: `./.claude/skills/ralph-prd/scripts/ralph.sh`
+> - Direct repo clone: `./skills/ralph-prd/scripts/ralph.sh`
+
+## Debugging Commands
+
+```bash
+# Check which stories are done
+cat ./docs/prd/task-priority/prd.json | jq '.userStories[] | {id, title, passes}'
+
+# View learnings from previous iterations
+cat ./docs/prd/task-priority/progress.md
+
+# Check git history
+git log --oneline -10
+```
+
+## Directory Structure
+
+PRD files are stored in the docs directory:
+```
+/docs/prd/<feature-name>/
+├── prd.md          # Human-readable PRD (created by /ralph-prd)
+├── prd.json        # Machine-readable PRD (created by /ralph-prd convert)
+├── progress.md     # Iteration log (created by Ralph)
+└── archive/        # Previous runs (created by Ralph)
+```
+
+## Key Concepts
+
+- **Fresh context each iteration**: Each run spawns a new Claude instance. Memory persists only via git, `progress.md`, and `prd.json`
+- **Small tasks**: Each story must complete in one context window. Split large features into focused changes
+- **Feedback loops**: Typecheck, tests, and CI keep code quality high across iterations
+- **Stop condition**: When all stories have `passes: true`, Ralph outputs `<promise>COMPLETE</promise>` and exits
+
+---
+
+# Ralph Agent Instructions
+
+> **Note:** These instructions are for the Ralph agent during autonomous execution.
+> The agent runs in the PRD directory context with `prd.json` and `progress.md` present.
+
+## Your Task
+
+1. Read the PRD at `prd.json` (in the current working directory)
+2. Read the progress log at `progress.md` (check Codebase Patterns section first)
+3. Check you're on the correct branch from PRD `branchName`. If not, check it out or create from main.
+4. Pick the **highest priority** user story where `passes: false`
+5. **Use `ultrathink`** to plan the implementation:
+   - Analyze acceptance criteria thoroughly
+   - Identify files that need to be modified
+   - Consider edge cases and potential issues
+   - Plan the implementation approach
+6. Implement that single user story
+7. Run quality checks (e.g., typecheck, lint, test - use whatever your project requires)
+8. Update AGENTS.md files if you discover reusable patterns (see below)
+9. If checks pass, commit ALL changes with message: `feat: [Story ID] - [Story Title]`
+10. Update the PRD to set `passes: true` for the completed story
+11. Append your progress to `progress.md`
+
+
+## Progress Report Format
+
+APPEND to progress.md (never replace, always append):
+```
+## [Date/Time] - [Story ID]
+- What was implemented
+- Files changed
+- **Learnings for future iterations:**
+  - Patterns discovered (e.g., "this codebase uses X for Y")
+  - Gotchas encountered (e.g., "don't forget to update Z when changing W")
+  - Useful context (e.g., "the evaluation panel is in component X")
+---
+```
+
+The learnings section is critical - it helps future iterations avoid repeating mistakes and understand the codebase better.
+
+## Consolidate Patterns
+
+If you discover a **reusable pattern** that future iterations should know, add it to the `## Codebase Patterns` section at the TOP of progress.md (create it if it doesn't exist). This section should consolidate the most important learnings:
+
+```
+## Codebase Patterns
+- Example: Use `sql<number>` template for aggregations
+- Example: Always use `IF NOT EXISTS` for migrations
+- Example: Export types from actions.ts for UI components
+```
+
+Only add patterns that are **general and reusable**, not story-specific details.
+
+## Update AGENTS.md Files
+
+Before committing, check if any edited files have learnings worth preserving in nearby AGENTS.md files:
+
+1. **Identify directories with edited files** - Look at which directories you modified
+2. **Check for existing AGENTS.md** - Look for AGENTS.md in those directories or parent directories
+3. **Add valuable learnings** - If you discovered something future developers/agents should know:
+   - API patterns or conventions specific to that module
+   - Gotchas or non-obvious requirements
+   - Dependencies between files
+   - Testing approaches for that area
+   - Configuration or environment requirements
+
+**Examples of good AGENTS.md additions:**
+- "When modifying X, also update Y to keep them in sync"
+- "This module uses pattern Z for all API calls"
+- "Tests require the dev server running on PORT 3000"
+- "Field names must match the template exactly"
+
+**Do NOT add:**
+- Story-specific implementation details
+- Temporary debugging notes
+- Information already in progress.md
+
+Only update AGENTS.md if you have **genuinely reusable knowledge** that would help future work in that directory.
+
+## Quality Requirements
+
+- ALL commits must pass your project's quality checks (typecheck, lint, test)
+- Do NOT commit broken code
+- Keep changes focused and minimal
+- Follow existing code patterns
+
+## Browser Testing (Required for Frontend Stories)
+
+For any story that changes UI, verify it works using available **MCP browser tools** (e.g., Playwright, Chrome DevTools, Puppeteer):
+
+1. **Prefer headless mode** if the browser tool supports it (allows validation to run in background)
+2. Navigate to the relevant page
+3. Capture the page state (accessibility snapshot or screenshot)
+4. Interact with UI elements to verify functionality
+5. Take a screenshot as visual evidence for the progress log
+
+Use whatever MCP browser tools are available in your environment. If no browser tools are available, note in your progress report that manual browser verification is needed.
+
+## Stop Condition
+
+After completing a user story, check if ALL stories have `passes: true`.
+
+If ALL stories are complete and passing, reply with:
+<promise>COMPLETE</promise>
+
+If there are still stories with `passes: false`, end your response normally (another iteration will pick up the next story).
+
+## Important
+
+- Work on ONE story per iteration
+- Commit frequently
+- Keep CI green
+- Read the Codebase Patterns section in progress.md before starting

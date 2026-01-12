@@ -1,0 +1,12 @@
+{
+  "name": "ralph-prd",
+  "description": "Ralph PRD Generator - Create detailed Product Requirements Documents and convert them to JSON for autonomous implementation",
+  "version": "1.0.0",
+  "author": {
+    "name": "arian88"
+  },
+  "repository": "https://github.com/arian88/claude-ralph-prd",
+  "license": "MIT",
+  "keywords": ["prd", "product-requirements", "automation", "planning", "ralph", "autonomous-agent"],
+  "skills": "./skills/"
+}
