@@ -1,12 +1,13 @@
 {
   "name": "ralph-prd",
-  "description": "Ralph PRD Generator - Create detailed Product Requirements Documents and convert them to JSON for autonomous implementation",
+  "description": "Autonomous PRD-to-implementation workflow. Create detailed Product Requirements Documents and run iterative development loops where Claude implements features until completion.",
   "version": "1.0.0",
   "author": {
     "name": "arian88"
   },
   "repository": "https://github.com/arian88/claude-ralph-prd",
+  "homepage": "https://github.com/arian88/claude-ralph-prd#readme",
   "license": "MIT",
-  "keywords": ["prd", "product-requirements", "automation", "planning", "ralph", "autonomous-agent"],
+  "keywords": ["prd", "product-requirements", "autonomous-agent", "iterative-development", "ralph", "planning", "feature-development"],
   "skills": "./skills/"
 }

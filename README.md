@@ -1,29 +1,33 @@
-# Claude Ralph
+# Ralph PRD
 
-An autonomous PRD-to-implementation AI agent system for Claude Code. Generate detailed Product Requirements Documents and let Ralph implement them iteratively.
+Autonomous PRD-to-implementation workflow for Claude Code. Create detailed Product Requirements Documents and run iterative development loops where Claude implements features until completion.
 
-## What is Ralph?
+## What is Ralph PRD?
 
-Ralph is an autonomous coding agent that implements features from PRDs iteratively. Each iteration spawns a fresh Claude instance with clean context. Memory persists via git history, `progress.md`, and `prd.json`.
+Ralph PRD is a Claude Code plugin that enables autonomous feature development through PRDs. It provides:
 
-**Single Command:** Use `/ralph-prd` for both creating PRDs and converting them to JSON.
+- **PRD Generation**: Create detailed Product Requirements Documents from feature descriptions
+- **Autonomous Implementation**: Convert PRDs to JSON and let Claude implement features iteratively
+- **Memory Persistence**: Each iteration spawns fresh context, with memory persisting via git history, `progress.md`, and `prd.json`
 
-**Workflow:**
-1. `/ralph-prd Add user authentication` - generates detailed PRD
-2. `/ralph-prd convert ./docs/prd/auth/prd.md` - converts PRD to JSON format
-3. `ralph.sh` script runs an autonomous loop where Claude implements each user story iteratively
+**Command:** `/ralph-prd`
+
+| Action | Example |
+|--------|---------|
+| Create PRD | `/ralph-prd Add user authentication` |
+| Convert to JSON | `/ralph-prd convert ./docs/prd/auth/prd.md` |
 
 ## Requirements
 
 - [Claude Code](https://docs.anthropic.com/en/docs/claude-code) CLI installed
 - bash shell
-- jq (for debugging commands): `brew install jq` (macOS) or `apt install jq` (Linux)
+- jq (for debugging): `brew install jq` (macOS) or `apt install jq` (Linux)
 
 ## Installation
 
-### Option 1: Claude Code Plugin (Recommended)
+### Plugin Installation (Recommended)
 
-Install via the Claude Code marketplace:
+Install via the Claude Code plugin manager:
 
 ```bash
 # Add the marketplace
@@ -36,25 +40,24 @@ Install via the Claude Code marketplace:
 /help ralph-prd
 ```
 
-> **Note:** Plugin installation commands may vary depending on your Claude Code version. If these commands don't work, use Option 2 (Clone as Template) instead.
+> **Note:** Plugin commands may vary by Claude Code version. See [Manual Installation](#manual-installation-skills) if needed.
 
-### Option 2: Clone as Template
+### Manual Installation (Skills)
 
-Clone this repo and copy the relevant files to your project:
+For users who prefer to copy skills directly to their project:
 
 ```bash
 # Clone the repo
 git clone https://github.com/arian88/claude-ralph-prd.git
 
-# Copy to your project
+# Copy to your project's .claude directory
 cp -r claude-ralph-prd/skills your-project/.claude/skills
 cp -r claude-ralph-prd/docs your-project/docs
 cp claude-ralph-prd/CLAUDE.md your-project/CLAUDE.md
 ```
 
-**Important:** When using the template method, the script path changes:
+When using manual installation, the script path is:
 ```bash
-# Run Ralph with template installation
 ./.claude/skills/ralph-prd/scripts/ralph.sh ./docs/prd/<feature>/
 ```
 
@@ -64,7 +67,7 @@ cp claude-ralph-prd/CLAUDE.md your-project/CLAUDE.md
 # Step 1: Create a PRD for your feature
 /ralph-prd Add task priority levels to the app
 
-# Step 2: Answer the clarifying questions, PRD saved to:
+# Step 2: Answer clarifying questions, PRD saved to:
 #         ./docs/prd/task-priority/prd.md
 
 # Step 3: Convert PRD to JSON for Ralph
@@ -74,17 +77,18 @@ cp claude-ralph-prd/CLAUDE.md your-project/CLAUDE.md
 ./skills/ralph-prd/scripts/ralph.sh ./docs/prd/task-priority/
 ```
 
-## Directory Structure
+## Plugin Contents
+
+| Component | Description |
+|-----------|-------------|
+| Skill: `ralph-prd` | Creates PRDs and converts them to JSON |
+| Script: `ralph.sh` | Runs autonomous implementation loop |
+| References | PRD examples, JSON schema, agent instructions |
+
+### Directory Structure
 
 ```
 your-project/
-├── .claude/                   # For template installation
-│   └── skills/
-│       └── ralph-prd/
-│           ├── SKILL.md
-│           ├── references/
-│           └── scripts/
-│               └── ralph.sh
 ├── docs/
 │   └── prd/                   # PRD files stored here
 │       └── <feature>/
@@ -95,36 +99,34 @@ your-project/
 └── CLAUDE.md                  # Ralph agent instructions
 ```
 
-## Commands Reference
+## Usage
 
-### /ralph-prd
-
-Single command for PRD creation and conversion:
+### Creating a PRD
 
 ```bash
-# Create a new PRD
 /ralph-prd Add user authentication to the app
 /ralph-prd Create a dashboard for analytics
-
-# Convert existing PRD to JSON
-/ralph-prd convert ./docs/prd/task-priority/prd.md
 ```
 
-**When creating a PRD**, the skill will:
+The plugin will:
 1. Enter plan mode and explore your codebase
 2. Interview you with clarifying questions
 3. Generate a detailed PRD with user stories
 4. Save to `./docs/prd/<feature>/prd.md`
 
-**When converting to JSON**, the skill will:
+### Converting to JSON
+
+```bash
+/ralph-prd convert ./docs/prd/task-priority/prd.md
+```
+
+The plugin will:
 1. Read and analyze the PRD
 2. Validate story sizing and dependencies
 3. Generate `prd.json` in the same directory
 4. Provide the command to run Ralph
 
-### ralph.sh
-
-Run the autonomous agent loop:
+### Running the Autonomous Loop
 
 ```bash
 # Basic usage (defaults to claude, 10 iterations)
@@ -137,14 +139,11 @@ Run the autonomous agent loop:
 ./skills/ralph-prd/scripts/ralph.sh ./docs/prd/<feature>/ --tool amp
 ```
 
-**Options:**
-- `--tool <amp|claude>` - AI tool to use (default: claude)
-- `--max-iterations <number>` - Maximum iterations (default: 10)
-
-> **Note:** Script path depends on installation method:
-> - Plugin: Skills are automatically available
-> - Template clone to `.claude/`: `./.claude/skills/ralph-prd/scripts/ralph.sh`
-> - Direct repo clone: `./skills/ralph-prd/scripts/ralph.sh`
+**Script path by installation method:**
+| Installation | Script Path |
+|--------------|-------------|
+| Plugin | `./skills/ralph-prd/scripts/ralph.sh` |
+| Manual (.claude/) | `./.claude/skills/ralph-prd/scripts/ralph.sh` |
 
 ## Key Concepts
 
@@ -203,18 +202,15 @@ Install jq: `brew install jq` (macOS) or `apt install jq` (Linux)
 ### Script permission denied
 ```bash
 chmod +x ./skills/ralph-prd/scripts/ralph.sh
-# or for template installation:
+# or for manual installation:
 chmod +x ./.claude/skills/ralph-prd/scripts/ralph.sh
 ```
 
-### Skills not recognized
-Ensure skills are in the correct location:
-- **Plugin:** Automatically handled by Claude Code
-- **Template:** `./.claude/skills/ralph-prd/`
-- **Direct clone:** `./skills/ralph-prd/`
+### Plugin not recognized
+Verify installation: `/plugin list` should show `ralph-prd`
 
 ### Ralph not finding prd.json
-Make sure you're passing the directory path, not the file path:
+Pass the directory path, not the file path:
 ```bash
 # Correct
 ./skills/ralph-prd/scripts/ralph.sh ./docs/prd/task-priority/
@@ -226,15 +222,12 @@ Make sure you're passing the directory path, not the file path:
 ## Customization
 
 ### Adjusting Story Sizing
-
-Edit `skills/ralph-prd/SKILL.md` to modify the story sizing guidelines in the "Story Size: The Number One Rule" section.
+Edit `skills/ralph-prd/SKILL.md` to modify story sizing guidelines.
 
 ### Adding Quality Checks
-
-Edit `skills/ralph-prd/references/prompt.md` to add additional quality requirements for the autonomous agent.
+Edit `skills/ralph-prd/references/prompt.md` to add additional quality requirements.
 
 ### Changing File Paths
-
 The default PRD directory is `./docs/prd/<feature>/`. To change this:
 1. Update paths in `skills/ralph-prd/SKILL.md`
 2. Update paths in reference files

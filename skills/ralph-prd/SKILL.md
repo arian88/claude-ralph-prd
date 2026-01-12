@@ -1,6 +1,6 @@
 ---
 name: ralph-prd
-description: "Ralph PRD Generator - Creates Product Requirements Documents and converts them to JSON for autonomous implementation. Use '/ralph-prd' to create a PRD or '/ralph-prd convert' to convert an existing PRD to JSON. Examples: '/ralph-prd Add user authentication', '/ralph-prd convert ./docs/prd/auth/prd.md'. Triggers: ralph-prd, create prd, convert prd, ralph json, run ralph."
+description: "Autonomous PRD-to-implementation system. PROACTIVELY activate for: (1) creating Product Requirements Documents from feature requests, (2) converting PRDs to JSON for autonomous execution, (3) planning iterative feature development. Use '/ralph-prd' to create a PRD or '/ralph-prd convert' to prepare for autonomous implementation. Examples: '/ralph-prd Add user authentication', '/ralph-prd convert ./docs/prd/auth/prd.md'. Triggers: ralph-prd, create prd, convert prd, ralph, prd json, feature planning."
 model: opus
 allowed-tools: EnterPlanMode, ExitPlanMode, AskUserQuestion, Read, Write, Glob, Grep, Bash, TodoWrite
 ---

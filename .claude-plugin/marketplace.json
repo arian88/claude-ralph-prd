@@ -3,14 +3,14 @@
   "owner": {
     "name": "arian88"
   },
-  "description": "Ralph PRD Generator skills for Claude Code",
+  "description": "Autonomous PRD-to-implementation plugin for Claude Code",
   "plugins": [
     {
       "name": "ralph-prd",
       "source": "./",
       "version": "1.0.0",
-      "description": "Generate PRDs and convert them to JSON for autonomous implementation with Ralph",
-      "keywords": ["prd", "product-requirements", "automation", "planning", "ralph"]
+      "description": "Autonomous PRD-to-implementation workflow. Create detailed Product Requirements Documents and run iterative development loops where Claude implements features until completion.",
+      "keywords": ["prd", "product-requirements", "autonomous-agent", "iterative-development", "ralph", "planning", "feature-development"]
     }
   ]
 }

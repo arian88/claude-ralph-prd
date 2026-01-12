@@ -1,6 +1,8 @@
-# Ralph Agent System
+# Ralph PRD Plugin
 
-Ralph is an autonomous coding agent that implements features from PRDs iteratively. Each iteration spawns a fresh Claude instance with clean context. Memory persists via git history, `progress.md`, and `prd.json`.
+Autonomous PRD-to-implementation workflow for Claude Code. Create detailed Product Requirements Documents and run iterative development loops where Claude implements features until completion.
+
+Each iteration spawns a fresh Claude instance with clean context. Memory persists via git history, `progress.md`, and `prd.json`.
 
 Based on [Geoffrey Huntley's Ralph pattern](https://ghuntley.com/ralph/). Original repo: [snarktank/ralph](https://github.com/snarktank/ralph)
 
@@ -26,10 +28,9 @@ Based on [Geoffrey Huntley's Ralph pattern](https://ghuntley.com/ralph/). Origin
 ./skills/ralph-prd/scripts/ralph.sh ./docs/prd/task-priority/ --tool amp --max-iterations 5
 ```
 
-> **Note:** Script path depends on installation method:
-> - Plugin installation: Skills are automatically available
-> - Template clone to `.claude/`: `./.claude/skills/ralph-prd/scripts/ralph.sh`
-> - Direct repo clone: `./skills/ralph-prd/scripts/ralph.sh`
+> **Script path by installation:**
+> - Plugin: `./skills/ralph-prd/scripts/ralph.sh`
+> - Manual (.claude/): `./.claude/skills/ralph-prd/scripts/ralph.sh`
 
 ## Debugging Commands
 
@@ -49,10 +50,10 @@ git log --oneline -10
 PRD files are stored in the docs directory:
 ```
 /docs/prd/<feature-name>/
-├── prd.md          # Human-readable PRD (created by /ralph-prd)
+├── prd.md          # Human-readable PRD (created by /ralph-prd plugin)
 ├── prd.json        # Machine-readable PRD (created by /ralph-prd convert)
-├── progress.md     # Iteration log (created by Ralph)
-└── archive/        # Previous runs (created by Ralph)
+├── progress.md     # Iteration log (created by Ralph agent)
+└── archive/        # Previous runs (created by Ralph agent)
 ```
 
 ## Key Concepts
