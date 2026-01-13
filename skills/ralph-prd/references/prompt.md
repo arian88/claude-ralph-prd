@@ -6,7 +6,7 @@ You are an autonomous coding agent working on a software project.
 
 1. Read the PRD at `prd.json` (in the current working directory)
 2. Read the progress log at `progress.md` (check Codebase Patterns section first)
-3. Check you're on the correct branch from PRD `branchName`. If not, check it out or create from main.
+3. Check you're on the correct branch from PRD `branchName`. If not, check it out or create from the current branch.
 4. Pick the **highest priority** user story where `passes: false`
 5. **Use `ultrathink`** to plan the implementation:
    - Analyze acceptance criteria thoroughly
