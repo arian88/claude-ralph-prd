@@ -36,11 +36,14 @@ Install via the Claude Code plugin manager:
 # Install the plugin
 /plugin install ralph-prd@ralph-prd-marketplace
 
+# Enable the plugin (required for 3rd party plugins)
+/plugin enable ralph-prd
+
 # Verify installation
 /help ralph-prd
 ```
 
-> **Note:** Plugin commands may vary by Claude Code version. See [Manual Installation](#manual-installation-skills) if needed.
+> **Note:** As a 3rd party plugin, Ralph PRD is not enabled by default after installation. You must run `/plugin enable ralph-prd` to activate it. Plugin commands may vary by Claude Code version. See [Manual Installation](#manual-installation-skills) if needed.
 
 ### Manual Installation (Skills)
 
