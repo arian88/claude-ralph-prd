@@ -686,8 +686,14 @@ Generate the JSON following the schema in [prd-json-example.md](./references/prd
       "priority": 1,
       "dependencies": [],
       "passes": false,
-      "commit": "",
       "preCommit": [],
+      "validationScenario": {
+        "type": "frontend | api | database | none",
+        "devServer": "npm run dev",
+        "port": 3000,
+        "steps": "Description of validation steps",
+        "successCriteria": ["No console errors", "Page renders correctly"]
+      },
       "notes": ""
     }
   ]
@@ -699,11 +705,12 @@ Generate the JSON following the schema in [prd-json-example.md](./references/prd
 1. **Each user story becomes one JSON entry**
 2. **IDs**: Sequential (US-001, US-002, etc.)
 3. **Priority**: Based on dependency order, then document order
-4. **All stories**: `passes: false`, empty `notes`, empty `commit`, empty `preCommit: []`
+4. **All stories**: `passes: false`, empty `notes`, empty `preCommit: []`
 5. **dependencies**: Array of story IDs this story depends on (empty `[]` if no dependencies)
 6. **branchName**: Derive from feature name, kebab-case, prefixed with `ralph/`
 7. **Always add**: "Typecheck passes" to every story's acceptance criteria
 8. **UI stories**: Add "Verify in browser using MCP browser tools"
+9. **validationScenario**: Add for UI stories with `type: "frontend"`, for API stories with `type: "api"`. Omit or set `type: "none"` for code-only changes.
 
 ---
 

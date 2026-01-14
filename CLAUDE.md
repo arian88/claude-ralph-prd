@@ -69,15 +69,16 @@ ralph.sh --prd ./apps/myapp/docs/prd/feature --root ./apps/myapp
 
 - **Dedicated branch**: All work happens on a feature branch, easy to review/revert
 - **Sandboxed execution**: Claude Code sandboxes destructive commands
-- **Atomic commits**: Each story = 2 commits (feat implementation + chore tracking)
+- **Atomic commits**: Each story = 1 commit (implementation + prd.json + progress.md)
 - **Pre-commit quality gates**: Code is simplified and reviewed before every commit
+- **Runtime validation**: Browser-based validation for UI stories catches runtime bugs
 - **No interactive prompts**: Runs fully in background, no blocking questions
 
 ## Debugging Commands
 
 ```bash
-# Check story status (with commit tracking)
-cat ./docs/prd/feature/prd.json | jq '.userStories[] | {id, title, passes, commit, preCommit}'
+# Check story status
+cat ./docs/prd/feature/prd.json | jq '.userStories[] | {id, title, passes, preCommit}'
 
 # View progress and learnings
 cat ./docs/prd/feature/progress.md
@@ -107,6 +108,8 @@ git diff main..ralph/feature-name
 - **Small tasks**: Each story should complete in one context window
 - **Autonomous decisions**: Agent makes choices based on PRD, documents them
 - **Two-pass quality review**: Every story runs code-simplifier AND code-review before committing
+- **Runtime validation**: Stories with `validationScenario` run browser/API tests before commit
+- **Available skills**: frontend-design skill for UI work, Context7 for docs, Playwright for browser
 - **Stop condition**: `<promise>COMPLETE</promise>` when all stories pass
 
 ---
@@ -145,16 +148,19 @@ Working directory = project root.
 6. **⛔ MANDATORY: Run Quality Review Phase (2 passes)**
    - Pass 1: code-simplifier (simplify code)
    - Pass 2: code-review (find bugs)
-7. **Commit #1 (feat):** Implementation with detailed message including PRD summary and tools used
-8. Update prd.json: `passes: true`, `commit: <hash>`, `preCommit: ["code-simplifier", "code-review"]`
+7. **Run Runtime Validation** (if story has `validationScenario` in PRD)
+   - Start dev server, launch browser, execute validation steps
+   - Check console for errors, verify success criteria
+8. Update prd.json: `passes: true`, `preCommit: ["code-simplifier", "code-review"]`
 9. Append detailed log to progress.md
-10. **Commit #2 (chore):** Stage BOTH prd.json AND progress.md together as single tracking commit
+10. **Single Commit (feat):** Stage implementation + prd.json + progress.md together
 11. **Push to remote** (backup immediately, first push creates remote branch)
 12. **Print confirmation block** (after all steps complete)
 
-**Result: 2 commits per story (feat + chore), NOT 3**
+**Result: 1 commit per story (feat with everything)**
 
 **⛔ NEVER set passes: true if preCommit doesn't contain BOTH tools. Both passes MUST be run.**
+**⛔ NEVER commit if runtime validation fails (when validationScenario exists).**
 
 ---
 
@@ -256,10 +262,14 @@ Print status at each phase:
 3. **QUALITY REVIEW** results for both passes:
    - Pass 1: refinements applied
    - Pass 2: issues found/fixed by severity
-4. **✓ STORY COMPLETE** block with:
-   - Commit hashes (2 per story: feat + chore tracking)
+4. **RUNTIME VALIDATION** results (if validationScenario exists):
+   - Type, scenario, expected vs actual
+   - Conclusion (PASSED/FAILED/SKIPPED)
+5. **✓ STORY COMPLETE** block with:
+   - Commit hash (single feat commit)
    - Files changed (+new, ~modified, -deleted)
-   - Tools used (browser, context7, etc. if applicable)
+   - Tools, skills, agents used
+   - Runtime validation results
    - Quality review details (both passes)
    - Push status (success or failure)
    - Progress bar and percentage

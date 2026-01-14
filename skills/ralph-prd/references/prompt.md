@@ -206,30 +206,154 @@ QUALITY REVIEW - VALIDATION GATE
 
 **⛔ STOP HERE if either pass failed or was not executed. Do NOT proceed to commit.**
 
-### Step 6: Commit (CRITICAL)
+### Step 5.7: Runtime Validation (REQUIRED if validationScenario exists)
 
-**This step is MANDATORY. Every completed story MUST result in a git commit.**
+**Check if the story has a `validationScenario` in the PRD. If present and type is not "none", execute validation.**
 
-#### 6a. Stage ONLY files you modified for this story:
+This step catches runtime errors that static analysis misses:
+- React hydration mismatches
+- API response format issues
+- Console errors from runtime exceptions
+- Network failures
+
+#### For Frontend Validation (type: "frontend"):
+
+1. **Check/Start dev server:**
 ```bash
-git add path/to/file1.ts path/to/file2.ts path/to/file3.ts
+# Check if port is in use (server already running)
+lsof -i :PORT > /dev/null 2>&1 && echo "Server running" || (npm run dev &)
 ```
-**Do NOT use `git add -A` or `git add .`** - only stage files related to THIS story.
 
-#### 6b. Create a detailed commit using heredoc format:
+2. **Wait for server ready (max 30 seconds):**
+```bash
+for i in {1..30}; do curl -s http://localhost:PORT > /dev/null && break || sleep 1; done
+```
+
+3. **Launch browser and execute validation steps:**
+   - Use `mcp__playwright__browser_navigate` to go to the URL
+   - Use `mcp__playwright__browser_click` / `mcp__playwright__browser_type` for interactions
+   - Follow the `steps` from validationScenario
+
+4. **Check for errors:**
+   - Use `mcp__playwright__browser_console_messages` with `level: "error"` to check for console errors
+   - Use `mcp__playwright__browser_network_requests` to verify API calls succeeded
+   - Use `mcp__playwright__browser_take_screenshot` for visual record
+
+5. **Verify ALL successCriteria from validationScenario**
+
+#### For API Validation (type: "api"):
+
+1. **Execute CURL request based on `steps`:**
+```bash
+curl -X POST http://localhost:PORT/api/endpoint \
+  -H "Content-Type: application/json" \
+  -d '{"key": "value"}' \
+  -w "\nHTTP_STATUS:%{http_code}"
+```
+
+2. **Verify response:**
+   - Status code matches expected
+   - Response body contains expected fields
+   - No error messages
+
+#### For Database Validation (type: "database"):
+
+1. **Trigger the operation** (via API or script)
+2. **Query database** (via MCP tool or Bash CLI)
+3. **Verify data integrity** per successCriteria
+
+#### If Validation FAILS:
+
+1. **Fix the issue in code**
+2. **Re-run quality checks** (typecheck, lint)
+3. **Re-run validation**
+4. **Do NOT commit until validation passes**
+
+**Print validation results:**
+```
+RUNTIME VALIDATION
+  Type: frontend
+  URL: http://localhost:3000/login
+  Steps: Navigated to /login, filled form, clicked submit
+  ✓ Server: Running on port 3000
+  ✓ Console: 0 errors (checked 15 messages)
+  ✓ Network: 3/3 requests successful
+  ✓ Visual: Screenshot captured
+  Status: PASSED
+```
+
+**If no validationScenario exists or type is "none":**
+```
+RUNTIME VALIDATION
+  Status: SKIPPED (no validationScenario defined)
+```
+
+---
+
+### Step 6: Prepare Tracking Files (BEFORE commit)
+
+**Before creating the commit, update ALL tracking files:**
+
+#### 6a. Update PRD
+
+**⛔ VALIDATION REQUIRED before updating PRD:**
+
+Verify ALL conditions are met:
+1. ✓ Quality Review Pass 1 executed (code-simplifier)
+2. ✓ Quality Review Pass 2 executed (code-review)
+3. ✓ All acceptance criteria were verified
+4. ✓ Quality checks pass (typecheck, lint, tests)
+
+**If ANY condition is not met, do NOT set passes: true. Stop and log the issue.**
+
+Edit `PRD_FILE` to update the completed story:
+1. Set `preCommit` to `["code-simplifier", "code-review"]` (MUST contain both)
+2. Set `passes: true` ONLY if preCommit contains BOTH tools
+
+**Example of valid completed story:**
+```json
+{
+  "id": "US-001",
+  "passes": true,
+  "preCommit": ["code-simplifier", "code-review"]
+}
+```
+
+**⛔ INVALID - Do NOT do this:**
+```json
+{
+  "passes": true,
+  "preCommit": ["code-simplifier"]  // INVALID: missing code-review!
+}
+```
+
+#### 6b. Log Progress
+
+**Append to `PROGRESS_FILE`.** See Step 8 for the full template.
+
+---
+
+### Step 7: Single Commit (CRITICAL)
+
+**Every story = ONE commit containing: implementation + prd.json + progress.md**
+
+#### 7a. Stage ALL files for this story:
+```bash
+git add path/to/file1.ts path/to/file2.ts "$PRD_FILE" "$PROGRESS_FILE"
+```
+
+#### 7b. Create commit using heredoc format:
 ```bash
 git commit -m "$(cat <<'EOF'
 feat(STORY-ID): Title of the story
 
-PRD Summary: [1-2 line description of what the overall PRD is building/achieving]
+Feature Summary: [1-2 lines: What THIS feature adds and why it matters to the user]
 
-PRD: [Feature name from PRD description]
 Story: STORY-ID - [Story title]
 
 Implemented:
 - [What was built - main functionality]
 - [Secondary changes made]
-- [Any supporting changes]
 
 Acceptance Criteria Verified:
 - [x] [Criterion 1 from PRD]
@@ -239,117 +363,50 @@ Acceptance Criteria Verified:
 Files Changed:
 - path/to/file1.ts: Description of changes
 - path/to/file2.ts: Description of changes
+- prd.json: Story marked complete
+- progress.md: Completion log added
+
+Tools, Skills & Agents:
+- Quality Review:
+  - code-simplifier: [N] refinements applied
+  - code-review: [N] issues found/fixed
+- Skills: [frontend-design: description / none]
+- MCP Tools: [Context7: docs fetched / Playwright: UI validated / none]
+
+Browser Validation:
+- Status: [✓ Validated / ✗ Not applicable]
+- Checked: [What was validated, or "N/A - no UI changes"]
+
+Runtime Validation:
+- Type: [frontend / api / database / none]
+- Scenario: [Brief description of validation steps from PRD]
+- Expected: [List of success criteria from PRD]
+- Actual Results:
+  [✓/✗] [Result 1 with details]
+  [✓/✗] [Result 2 with details]
+- Conclusion: [PASSED ✓ / FAILED → Fixed → PASSED ✓ / SKIPPED]
 
 Decisions:
-- [Decision 1]: [Justification - why this approach]
-- [Decision 2]: [Justification - why this approach]
-
-Tools Used:
-- Code Simplifier (required)
-- Code Review (required)
-- [Only list additional tools actually used, e.g.:]
-- Browser: [What was validated]
-- Context7: [What documentation was fetched]
-- Playwright: [What was tested]
-
-Quality Review:
-- Pass 1 (code-simplifier): [N] refinements applied
-- Pass 2 (code-review): [N] issues found, [N] fixed
+- [Decision 1]: [Justification]
 
 Validated:
 - Typecheck: passed
 - Lint: passed
-- Tests: passed (or N/A if no tests apply)
-
-Refs: PRD [feature-name]
+- Build: passed
 
 Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>
 EOF
 )"
 ```
 
-#### 6c. Verify the commit was created:
+#### 7c. Verify commit:
 ```bash
 git log -1 --oneline
 ```
 
-### Step 7: Update PRD
+### Step 7.5: Push to Remote (REQUIRED)
 
-**⛔ VALIDATION REQUIRED before updating PRD:**
-
-Before setting `passes: true`, verify ALL conditions are met:
-1. ✓ Quality Review Pass 1 executed (code-simplifier)
-2. ✓ Quality Review Pass 2 executed (code-review)
-3. ✓ All acceptance criteria were verified
-4. ✓ Quality checks pass (typecheck, lint, tests)
-5. ✓ Commit was successfully created (you have a commit hash)
-
-**If ANY condition is not met, do NOT set passes: true. Stop and log the issue.**
-
-Edit `PRD_FILE` to update the completed story:
-1. Set `preCommit` to `["code-simplifier", "code-review"]` (MUST contain both)
-2. Set `commit` to the hash from Step 6c (e.g., `"commit": "abc123def456..."`)
-3. Set `passes: true` ONLY if preCommit contains BOTH tools AND commit is populated
-
-**Example of valid completed story:**
-```json
-{
-  "id": "US-001",
-  "passes": true,
-  "commit": "abc123def456...",
-  "preCommit": ["code-simplifier", "code-review"]
-}
-```
-
-**⛔ INVALID - Do NOT do this:**
-```json
-{
-  "passes": true,
-  "commit": "abc123",
-  "preCommit": ["code-simplifier"]  // INVALID: missing code-review!
-}
-```
-
-```json
-{
-  "passes": true,
-  "commit": "abc123",
-  "preCommit": []  // INVALID: preCommit is empty!
-}
-```
-
-### Step 7.5: Log Progress (BEFORE committing)
-
-**Append to `PROGRESS_FILE` BEFORE the tracking commit.** This ensures progress.md is committed together with prd.json.
-
-See Step 8 for the full progress.md template. Write the entry now, then proceed to commit.
-
-### Step 7.6: Commit Tracking Files (REQUIRED)
-
-**Stage BOTH tracking files and commit together:**
-```bash
-git add "$PRD_FILE" "$PROGRESS_FILE"
-git commit -m "$(cat <<'EOF'
-chore(STORY-ID): complete story and update progress
-
-Updates prd.json:
-- passes: true
-- commit: [feature-commit-hash]
-- preCommit: ["code-simplifier", "code-review"]
-
-Updates progress.md:
-- Story completion log with files changed
-- Decisions documented
-- Quality review results
-EOF
-)"
-```
-
-**This creates a single atomic commit for ALL tracking metadata.**
-
-### Step 7.7: Push to Remote (REQUIRED)
-
-**Push both commits to the remote branch immediately after committing.**
+**Push the commit to remote immediately.**
 
 ```bash
 git push origin "$BRANCH_NAME"
@@ -360,8 +417,7 @@ git push origin "$BRANCH_NAME"
 **If push fails:**
 1. Note the error (will be shown in confirmation block)
 2. **Continue to next story** (don't block the workflow)
-3. Commits remain local and can be pushed manually or on next iteration
-4. Next iteration's push will include all unpushed commits
+3. Commit remains local and can be pushed manually or on next iteration
 
 **Why push immediately:**
 - Work is backed up to remote (no lost progress if machine crashes)
@@ -369,35 +425,43 @@ git push origin "$BRANCH_NAME"
 - PR is continuously updated with new commits
 - CI/CD can run on each push for early feedback
 
-### Step 7.8: Print Confirmation Block (REQUIRED)
+### Step 7.6: Print Confirmation Block (REQUIRED)
 
-**After ALL steps are complete (commit, PRD update, push), print this block for user validation:**
+**After ALL steps are complete, print this block for user validation:**
 
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ✓ STORY COMPLETE: [STORY-ID] - [Title]
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-COMMITS (2 per story)
-  Feature:  [short-hash] feat(STORY-ID): [title]
-  Tracking: [short-hash] chore(STORY-ID): complete story and update progress
-  Branch:   [branch-name]
+COMMIT (1 per story)
+  [short-hash] feat(STORY-ID): [title]
+  Branch: [branch-name]
 
 FILES CHANGED ([N] files)
   + path/to/new-file.ts            [new]
   ~ path/to/modified-file.ts       [modified]
-  - path/to/deleted-file.ts        [deleted]
+  ~ prd.json                       [story completed]
+  ~ progress.md                    [log added]
 
-QUALITY REVIEW (REQUIRED - 2 PASSES)
-  Pass 1 - code-simplifier:
-    ✓ [N] refinements applied
-    - [Specific improvement 1]
-    - [Specific improvement 2]
-  Pass 2 - code-review:
-    ✓ [N] issues found, [N] fixed
-    - HIGH: [description of fix]
-    - MEDIUM: [description of fix]
-  VALIDATED: Both passes complete
+TOOLS, SKILLS & AGENTS
+  Quality Review:
+    ✓ code-simplifier: [N] refinements applied
+    ✓ code-review: [N] issues found/fixed
+  Skills: [frontend-design / none]
+  MCP Tools: [Context7 / Playwright / none]
+
+BROWSER VALIDATION
+  Status: [✓ Validated / ✗ Not applicable]
+  Checked: [What was validated]
+
+RUNTIME VALIDATION
+  Type: [frontend / api / database / none]
+  Scenario: [Brief description]
+  Results:
+    ✓ [Success criterion 1]
+    ✓ [Success criterion 2]
+  Conclusion: [PASSED ✓ / SKIPPED]
 
 ACCEPTANCE CRITERIA
   ✓ [Criterion 1 - be specific]
@@ -405,15 +469,14 @@ ACCEPTANCE CRITERIA
   ✓ Typecheck passes
 
 QUALITY CHECKS
-  ✓ Typecheck   ✓ Lint   ✓ Tests
+  ✓ Typecheck   ✓ Lint   ✓ Build
 
 DECISIONS
   • [Decision 1]: [Brief justification]
-  • [Decision 2]: [Brief justification]
 
 PUSHED TO REMOTE
-  ✓ 2 commits pushed to origin/[branch-name]
-  (or "✗ Push failed: [error] - commits saved locally")
+  ✓ Pushed to origin/[branch-name]
+  (or "✗ Push failed: [error] - commit saved locally")
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 PROGRESS: [████████░░░░░░░░░░░░] [completed]/[total] stories ([percentage]%)
@@ -450,11 +513,10 @@ NEXT UP: [NEXT-STORY-ID] - [Next Story Title]
 **Date:** [YYYY-MM-DD HH:MM]
 **Status:** ✓ Complete
 
-### Commits (2 per story)
-| Type | Hash | Message |
-|------|------|---------|
-| Feature | `[full-hash]` | feat(STORY-ID): [title] |
-| Tracking | `[full-hash]` | chore(STORY-ID): complete story and update progress |
+### Commit
+| Hash | Message |
+|------|---------|
+| `[full-hash]` | feat(STORY-ID): [title] |
 
 **Branch:** `[branch-name]`
 **Pushed:** ✓ Yes (or "✗ Failed: [error]")
@@ -465,6 +527,8 @@ NEXT UP: [NEXT-STORY-ID] - [Next Story Title]
 | `path/to/file1.ts` | + new | [What was added] |
 | `path/to/file2.ts` | ~ modified | [What was changed] |
 | `path/to/file3.ts` | - deleted | [Why removed] |
+| `prd.json` | ~ modified | Story marked complete |
+| `progress.md` | ~ modified | Completion log added |
 
 ### Quality Review (REQUIRED - 2 PASSES)
 
@@ -478,6 +542,15 @@ NEXT UP: [NEXT-STORY-ID] - [Next Story Title]
 - LOW: [Skipped - documented for future]
 
 **Validation:** Both passes executed successfully
+
+### Runtime Validation
+- **Type:** [frontend / api / database / none]
+- **Scenario:** [Brief description of validation steps]
+- **Expected:** [Success criteria from PRD]
+- **Actual Results:**
+  - ✓ [Result 1 with details]
+  - ✓ [Result 2 with details]
+- **Conclusion:** PASSED ✓ (or "FAILED → Fixed → PASSED ✓" / "SKIPPED")
 
 ### Acceptance Criteria
 - [x] [Criterion 1 - specific description]
@@ -516,6 +589,79 @@ NEXT UP: [NEXT-STORY-ID] - [Next Story Title]
 ### Step 9: Check Completion
 - If ALL stories have `passes: true`, output: `<promise>COMPLETE</promise>`
 - Otherwise, end normally (next iteration will pick up remaining stories)
+
+---
+
+## Available Skills for UI/UX Work
+
+### Frontend-Design Skill
+
+For stories involving **UI components, visual design, or user experience**, you can use the frontend-design skill.
+
+**When to use:**
+- Creating new UI components or pages
+- Implementing visual designs or layouts
+- Building interactive user interfaces
+- Any story with UX-related acceptance criteria
+
+**How to invoke:**
+```json
+{
+  "subagent_type": "frontend-design:frontend-design",
+  "prompt": "Create [description of UI component/page]. Requirements:\n- [Requirement 1]\n- [Requirement 2]\n\nFiles to create/modify:\n- [file paths]",
+  "description": "Design [component name]"
+}
+```
+
+**What it does:**
+- Creates distinctive, production-grade frontend interfaces
+- Avoids generic AI aesthetics
+- Generates creative, polished code
+- Follows modern design principles
+
+**Note:** This skill is OPTIONAL. Use it when the story benefits from dedicated design focus. For simple UI changes, direct implementation is fine.
+
+---
+
+## Available MCP Tools
+
+The following tools are available for enhanced validation and documentation:
+
+### Browser Automation (Playwright)
+
+| Tool | Purpose |
+|------|---------|
+| `mcp__playwright__browser_navigate` | Navigate to a URL |
+| `mcp__playwright__browser_snapshot` | Accessibility tree (better than screenshot for analysis) |
+| `mcp__playwright__browser_take_screenshot` | Visual capture for records |
+| `mcp__playwright__browser_click` | Click on elements |
+| `mcp__playwright__browser_type` | Type into input fields |
+| `mcp__playwright__browser_console_messages` | Read console logs (errors, warnings) |
+| `mcp__playwright__browser_network_requests` | Check API calls and responses |
+
+### Documentation (Context7)
+
+| Tool | Purpose |
+|------|---------|
+| `mcp__context7__resolve-library-id` | Find library documentation ID |
+| `mcp__context7__query-docs` | Query specific library documentation |
+
+### When to Use Each Tool
+
+| Scenario | Tool |
+|----------|------|
+| UI validation, visual verification | Playwright browser tools |
+| Check for console errors | `mcp__playwright__browser_console_messages` |
+| Verify API calls succeeded | `mcp__playwright__browser_network_requests` |
+| Fetch library/framework docs | Context7 tools |
+| Complex interactions | Playwright for testing |
+
+**Important:** These tools are OPTIONAL. Use them when they add value:
+- UI stories → Browser validation recommended (see validationScenario)
+- Using unfamiliar libraries → Context7 for documentation
+- Complex interactions → Playwright for testing
+
+---
 
 ## Decision Making
 
@@ -557,17 +703,15 @@ If `git commit` fails:
 - ONE story per iteration
 - NO questions - be decisive
 - **MUST RUN BOTH quality review passes** (code-simplifier AND code-review) - this is BLOCKING
-- **2 COMMITS per story:**
-  1. `feat(STORY-ID)`: Implementation (includes PRD summary + tools used)
-  2. `chore(STORY-ID)`: Tracking (prd.json + progress.md combined)
+- **MUST RUN runtime validation** if story has `validationScenario` in PRD
+- **1 COMMIT per story:** `feat(STORY-ID)` includes implementation + prd.json + progress.md
 - MUST PUSH after each story (backup to remote immediately)
-- MUST UPDATE prd.json with: `passes: true`, `commit: "hash"`, `preCommit: ["code-simplifier", "code-review"]`
-- MUST LOG to progress.md BEFORE the chore commit (so both are committed together)
+- MUST UPDATE prd.json with: `passes: true`, `preCommit: ["code-simplifier", "code-review"]`
+- MUST LOG to progress.md BEFORE the commit
 - Working directory = project root, NOT PRD directory
-- Stage ONLY files you changed for THIS story (feat commit)
-- Stage BOTH prd.json AND progress.md together (chore commit)
-- **⛔ NEVER create a separate docs commit - progress.md is committed with prd.json**
+- Stage ALL files for THIS story in a single commit: implementation + prd.json + progress.md
 - **⛔ NEVER set passes: true if preCommit doesn't contain BOTH tools**
+- **⛔ NEVER commit if runtime validation fails (when validationScenario exists)**
 
 ## Console Output Requirements
 
@@ -578,10 +722,14 @@ If `git commit` fails:
    - Pass 1 (code-simplifier): refinements applied
    - Pass 2 (code-review): issues found and fixed by severity
    - Validation gate status
-4. **Step 7.8:** Print full "✓ STORY COMPLETE" block with:
-   - Commit hashes (2 per story: feat + chore tracking)
+4. **Step 5.7:** Print "RUNTIME VALIDATION" results (if validationScenario exists):
+   - Type, scenario, expected vs actual results
+   - Conclusion (PASSED/FAILED/SKIPPED)
+5. **Step 7.6:** Print full "✓ STORY COMPLETE" block with:
+   - Commit hash (single feat commit with all changes)
    - Files changed with +/~/- indicators
-   - Tools used (browser, context7, etc. if applicable)
+   - Tools, skills, agents used
+   - Runtime validation results
    - Quality review details (both passes with specifics)
    - Acceptance criteria verification
    - Push status (success or failure with error)
