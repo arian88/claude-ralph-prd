@@ -61,7 +61,7 @@ cp claude-ralph-prd/CLAUDE.md your-project/CLAUDE.md
 
 When using manual installation, the script path is:
 ```bash
-./.claude/skills/ralph-prd/scripts/ralph.sh ./docs/prd/<feature>/
+./.claude/skills/ralph-prd/scripts/ralph.sh --prd ./docs/prd/<feature> --root .
 ```
 
 ## Quick Start
@@ -77,7 +77,7 @@ When using manual installation, the script path is:
 /ralph-prd convert ./docs/prd/task-priority/prd.md
 
 # Step 4: Run Ralph (autonomous loop)
-./skills/ralph-prd/scripts/ralph.sh ./docs/prd/task-priority/
+./skills/ralph-prd/scripts/ralph.sh --prd ./docs/prd/task-priority --root .
 ```
 
 ## Plugin Contents
@@ -133,13 +133,13 @@ The plugin will:
 
 ```bash
 # Basic usage (defaults to claude, 10 iterations)
-./skills/ralph-prd/scripts/ralph.sh ./docs/prd/<feature>/
+./skills/ralph-prd/scripts/ralph.sh --prd ./docs/prd/<feature> --root .
 
 # With more iterations
-./skills/ralph-prd/scripts/ralph.sh ./docs/prd/<feature>/ --max-iterations 15
+./skills/ralph-prd/scripts/ralph.sh --prd ./docs/prd/<feature> --root . --max 15
 
 # With amp instead of claude
-./skills/ralph-prd/scripts/ralph.sh ./docs/prd/<feature>/ --tool amp
+./skills/ralph-prd/scripts/ralph.sh --prd ./docs/prd/<feature> --root . --tool amp
 ```
 
 **Script path by installation method:**
@@ -213,13 +213,13 @@ chmod +x ./.claude/skills/ralph-prd/scripts/ralph.sh
 Verify installation: `/plugin list` should show `ralph-prd`
 
 ### Ralph not finding prd.json
-Pass the directory path, not the file path:
+Use the `--prd` flag with the directory path:
 ```bash
 # Correct
-./skills/ralph-prd/scripts/ralph.sh ./docs/prd/task-priority/
+./skills/ralph-prd/scripts/ralph.sh --prd ./docs/prd/task-priority --root .
 
-# Incorrect
-./skills/ralph-prd/scripts/ralph.sh ./docs/prd/task-priority/prd.json
+# Incorrect (passing file path instead of directory)
+./skills/ralph-prd/scripts/ralph.sh --prd ./docs/prd/task-priority/prd.json --root .
 ```
 
 ## Customization

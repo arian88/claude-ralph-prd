@@ -684,7 +684,10 @@ Generate the JSON following the schema in [prd-json-example.md](./references/prd
         "Typecheck passes"
       ],
       "priority": 1,
+      "dependencies": [],
       "passes": false,
+      "commit": "",
+      "preCommit": [],
       "notes": ""
     }
   ]
@@ -696,10 +699,11 @@ Generate the JSON following the schema in [prd-json-example.md](./references/prd
 1. **Each user story becomes one JSON entry**
 2. **IDs**: Sequential (US-001, US-002, etc.)
 3. **Priority**: Based on dependency order, then document order
-4. **All stories**: `passes: false` and empty `notes`
-5. **branchName**: Derive from feature name, kebab-case, prefixed with `ralph/`
-6. **Always add**: "Typecheck passes" to every story's acceptance criteria
-7. **UI stories**: Add "Verify in browser using MCP browser tools"
+4. **All stories**: `passes: false`, empty `notes`, empty `commit`, empty `preCommit: []`
+5. **dependencies**: Array of story IDs this story depends on (empty `[]` if no dependencies)
+6. **branchName**: Derive from feature name, kebab-case, prefixed with `ralph/`
+7. **Always add**: "Typecheck passes" to every story's acceptance criteria
+8. **UI stories**: Add "Verify in browser using MCP browser tools"
 
 ---
 
@@ -771,7 +775,7 @@ After saving, you MUST:
 prd.json saved to: `./docs/prd/task-priority/prd.json`
 
 **Next step** - Run Ralph autonomous agent:
-./skills/ralph-prd/scripts/ralph.sh ./docs/prd/task-priority/
+./skills/ralph-prd/scripts/ralph.sh --prd ./docs/prd/task-priority --root .
 ```
 
 **IMPORTANT:** Use the ACTUAL path from your save, not placeholders.
@@ -829,21 +833,23 @@ After creating `prd.json`, run the Ralph agent loop:
 
 ```bash
 # Basic usage (defaults to claude tool, 10 iterations)
-./skills/ralph-prd/scripts/ralph.sh ./docs/prd/<feature>/
+./skills/ralph-prd/scripts/ralph.sh --prd ./docs/prd/<feature> --root .
 
 # With more iterations
-./skills/ralph-prd/scripts/ralph.sh ./docs/prd/<feature>/ --max-iterations 15
+./skills/ralph-prd/scripts/ralph.sh --prd ./docs/prd/<feature> --root . --max 15
 
 # With different tool
-./skills/ralph-prd/scripts/ralph.sh ./docs/prd/<feature>/ --tool amp
+./skills/ralph-prd/scripts/ralph.sh --prd ./docs/prd/<feature> --root . --tool amp
 
-# With both options
-./skills/ralph-prd/scripts/ralph.sh ./docs/prd/<feature>/ --tool amp --max-iterations 5
+# With all options
+./skills/ralph-prd/scripts/ralph.sh --prd ./docs/prd/<feature> --root . --max 20 --tool claude
 ```
 
 **Options:**
+- `--prd <dir>` - PRD directory containing prd.json (required)
+- `--root <dir>` - Project root directory where code lives (required)
 - `--tool <amp|claude>` - AI tool to use (default: claude)
-- `--max-iterations <number>` - Maximum iterations (default: 10)
+- `--max <number>` - Maximum iterations (default: 10)
 
 > **Note:** Script path depends on installation method:
 > - Plugin installation: Skills are automatically available
