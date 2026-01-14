@@ -83,17 +83,31 @@ QUALITY CHECKS
 
 Do NOT proceed to commit if checks fail. Fix issues first.
 
-### Step 5.5: Pre-Commit Tools (MANDATORY - BLOCKING)
+### Step 5.5: Quality Review Phase (MANDATORY - BLOCKING)
 
-**⛔ You CANNOT proceed to commit until BOTH pre-commit tools have been executed.**
+**⛔ You CANNOT proceed to commit until BOTH quality review passes have been executed.**
 
-This step is a **hard gate**. A story can ONLY have `passes: true` if `preCommit` contains BOTH tools.
+This step is a **hard gate**. A story can ONLY have `passes: true` if `preCommit` contains BOTH `"code-simplifier"` AND `"code-review"`.
 
-#### REQUIRED: Run Both Tools in Order
+```
+┌──────────────────────────────────────────────────────────────────────┐
+│                    QUALITY REVIEW PHASE                              │
+│                                                                      │
+│   PASS 1: Code Simplifier  →  Apply Changes  →  Quality Checks       │
+│                              ↓                                       │
+│   PASS 2: Code Review      →  Fix Issues     →  Quality Checks       │
+│                              ↓                                       │
+│   VALIDATION GATE          →  Ready to Commit                        │
+└──────────────────────────────────────────────────────────────────────┘
+```
 
-**Tool 1: code-simplifier** (run FIRST)
+---
 
-You MUST invoke the Task tool like this:
+#### PASS 1: Code Simplification (run FIRST)
+
+Spawn the code-simplifier agent with fresh context to review your implementation.
+
+**Invoke the Task tool:**
 ```json
 {
   "subagent_type": "code-simplifier:code-simplifier",
@@ -102,52 +116,95 @@ You MUST invoke the Task tool like this:
 }
 ```
 
-After receiving results:
-- Apply ALL suggested improvements to your code
-- If code was modified, re-run quality checks (typecheck, lint)
+**What code-simplifier does:**
+- Simplifies code for clarity and maintainability
+- Preserves exact functionality (never changes what code does)
+- Applies project coding standards
+- Improves naming, reduces complexity, removes redundancy
 
-**Tool 2: code-review** (run SECOND, after applying simplifier changes)
+**After receiving results:**
+1. Apply ALL suggested improvements to your code
+2. Re-run quality checks (typecheck, lint) if code was modified
+3. Track completion: `preCommit` will include `"code-simplifier"`
 
-You MUST invoke the Task tool like this:
+**Print Pass 1 results:**
+```
+QUALITY REVIEW - PASS 1: CODE SIMPLIFICATION
+  ✓ code-simplifier agent spawned (fresh context)
+  ✓ [N] refinements applied:
+    - [Specific improvement 1]
+    - [Specific improvement 2]
+  ✓ Quality checks re-run: passed
+```
+
+---
+
+#### PASS 2: Code Review (run SECOND, after simplification)
+
+Spawn a code review agent with fresh context to find bugs and issues in your simplified code.
+
+**Invoke the Task tool:**
 ```json
 {
-  "subagent_type": "code-review:code-review",
-  "prompt": "Review these files for bugs, issues, and best practices:\n- /full/path/to/file1.ts\n- /full/path/to/file2.ts",
-  "description": "Review modified files"
+  "subagent_type": "general-purpose",
+  "prompt": "You are a senior code reviewer. Review the following modified files for bugs and issues.\n\n## Review Focus\n\n1. **Bugs**: Logic errors, off-by-one errors, null/undefined handling, race conditions\n2. **Security**: Input validation, injection vulnerabilities, authentication/authorization issues\n3. **Edge Cases**: Missing error handling, boundary conditions, empty states\n4. **Correctness**: Does the code actually do what it's supposed to do?\n\n## Output Format\n\nFor each issue found, report:\n```\nISSUE:\n  File: /path/to/file.ts\n  Line: 42\n  Severity: HIGH | MEDIUM | LOW\n  Description: What is wrong\n  Suggested Fix: How to fix it\n```\n\n## Rules\n\n- Only report issues you are >80% confident are real problems\n- Do NOT report style/formatting issues (already handled by code-simplifier)\n- Do NOT report issues in code that was not modified\n- Focus on functional correctness and security\n- If no issues found, respond with: 'No issues found.'\n\n## Files to Review\n\n- /full/path/to/file1.ts\n- /full/path/to/file2.ts",
+  "description": "Review modified files for bugs and issues"
 }
 ```
 
-After receiving results:
-- Fix ALL issues with confidence score >= 80
-- If code was modified, re-run quality checks (typecheck, lint)
+**What the code review agent does:**
+- Reviews code with fresh context (no bias from implementation)
+- Finds bugs, security issues, and edge cases
+- Provides severity ratings (HIGH/MEDIUM/LOW)
+- Suggests fixes for each issue
+
+**After receiving results:**
+1. Fix ALL issues with severity **HIGH** (must fix)
+2. Fix issues with severity **MEDIUM** (should fix if reasonable)
+3. **LOW** severity issues are optional (document if skipped)
+4. Re-run quality checks (typecheck, lint) if code was modified
+5. Track completion: `preCommit` will include `"code-review"`
+
+**Print Pass 2 results:**
+```
+QUALITY REVIEW - PASS 2: CODE REVIEW
+  ✓ code-review agent spawned (fresh context)
+  ✓ Review complete:
+    - HIGH: [N] issues found, [N] fixed
+    - MEDIUM: [N] issues found, [N] fixed
+    - LOW: [N] issues found (optional)
+  ✓ Quality checks re-run: passed
+```
+
+---
 
 #### Validation Gate
 
-Before proceeding to Step 6 (Commit), verify:
-- [ ] code-simplifier was executed (you have results)
-- [ ] code-review was executed (you have results)
-- [ ] All high-confidence issues were fixed
-- [ ] Quality checks still pass after changes
+Before proceeding to Step 6 (Commit), verify ALL conditions:
 
-**If you cannot run these tools (error or unavailable):**
+- [ ] **Pass 1 complete**: code-simplifier was executed and improvements applied
+- [ ] **Pass 2 complete**: code-review was executed and HIGH/MEDIUM issues fixed
+- [ ] **Quality checks pass**: typecheck, lint, tests all pass after changes
+- [ ] **preCommit ready**: Will contain `["code-simplifier", "code-review"]`
+
+**If ANY condition is not met:**
 - STOP the iteration
 - Log the error in progress.md
 - Do NOT mark the story as complete
 - Do NOT set passes: true
 
-#### Print Results (REQUIRED)
+**Print Validation Gate results:**
 ```
-PRE-COMMIT TOOLS
-  ✓ code-simplifier: [N] refinements applied
-    - [Specific change 1]
-    - [Specific change 2]
-  ✓ code-review: [N] issues found, [N] fixed
-    - [Issue and fix description]
+QUALITY REVIEW - VALIDATION GATE
+  ✓ Pass 1 (code-simplifier): complete
+  ✓ Pass 2 (code-review): complete
+  ✓ All HIGH severity issues: fixed
+  ✓ Quality checks: passed
 
-VALIDATION: ✓ Both tools executed, ready to commit
+  VALIDATED: ✓ Ready to commit
 ```
 
-**⛔ STOP HERE if either tool failed or was not executed. Do NOT proceed to commit.**
+**⛔ STOP HERE if either pass failed or was not executed. Do NOT proceed to commit.**
 
 ### Step 6: Commit (CRITICAL)
 
@@ -209,17 +266,18 @@ git log -1 --oneline
 **⛔ VALIDATION REQUIRED before updating PRD:**
 
 Before setting `passes: true`, verify ALL conditions are met:
-1. ✓ Both pre-commit tools were executed (code-simplifier AND code-review)
-2. ✓ All acceptance criteria were verified
-3. ✓ Quality checks pass (typecheck, lint, tests)
-4. ✓ Commit was successfully created (you have a commit hash)
+1. ✓ Quality Review Pass 1 executed (code-simplifier)
+2. ✓ Quality Review Pass 2 executed (code-review)
+3. ✓ All acceptance criteria were verified
+4. ✓ Quality checks pass (typecheck, lint, tests)
+5. ✓ Commit was successfully created (you have a commit hash)
 
 **If ANY condition is not met, do NOT set passes: true. Stop and log the issue.**
 
 Edit `PRD_FILE` to update the completed story:
 1. Set `preCommit` to `["code-simplifier", "code-review"]` (MUST contain both)
 2. Set `commit` to the hash from Step 6c (e.g., `"commit": "abc123def456..."`)
-3. Set `passes: true` ONLY if preCommit contains both tools AND commit is populated
+3. Set `passes: true` ONLY if preCommit contains BOTH tools AND commit is populated
 
 **Example of valid completed story:**
 ```json
@@ -232,6 +290,14 @@ Edit `PRD_FILE` to update the completed story:
 ```
 
 **⛔ INVALID - Do NOT do this:**
+```json
+{
+  "passes": true,
+  "commit": "abc123",
+  "preCommit": ["code-simplifier"]  // INVALID: missing code-review!
+}
+```
+
 ```json
 {
   "passes": true,
@@ -287,13 +353,16 @@ FILES CHANGED ([N] files)
   ~ path/to/modified-file.ts       [modified]
   - path/to/deleted-file.ts        [deleted]
 
-PRE-COMMIT TOOLS (REQUIRED)
-  ✓ code-simplifier: [N] refinements applied
+QUALITY REVIEW (REQUIRED - 2 PASSES)
+  Pass 1 - code-simplifier:
+    ✓ [N] refinements applied
     - [Specific improvement 1]
     - [Specific improvement 2]
-  ✓ code-review: [N] issues found, [N] fixed
-    - [Issue fixed, if any]
-  VALIDATED: Both tools executed successfully
+  Pass 2 - code-review:
+    ✓ [N] issues found, [N] fixed
+    - HIGH: [description of fix]
+    - MEDIUM: [description of fix]
+  VALIDATED: Both passes complete
 
 ACCEPTANCE CRITERIA
   ✓ [Criterion 1 - be specific]
@@ -359,16 +428,18 @@ Append to `PROGRESS_FILE`:
 | `path/to/file2.ts` | ~ modified | [What was changed] |
 | `path/to/file3.ts` | - deleted | [Why removed] |
 
-### Pre-Commit Tools (REQUIRED)
+### Quality Review (REQUIRED - 2 PASSES)
 
-**code-simplifier:** ✓ Applied ([N] refinements)
+**Pass 1 - code-simplifier:** ✓ Applied ([N] refinements)
 - [Specific improvement 1]
 - [Specific improvement 2]
 
-**code-review:** ✓ Passed ([N] issues found/fixed)
-- [Issue description and fix, if any]
+**Pass 2 - code-review:** ✓ Complete ([N] issues found/fixed)
+- HIGH: [Issue and fix description]
+- MEDIUM: [Issue and fix description]
+- LOW: [Skipped - documented for future]
 
-**Validation:** Both tools executed successfully
+**Validation:** Both passes executed successfully
 
 ### Acceptance Criteria
 - [x] [Criterion 1 - specific description]
@@ -447,25 +518,28 @@ If `git commit` fails:
 
 - ONE story per iteration
 - NO questions - be decisive
-- **MUST RUN BOTH pre-commit tools** (code-simplifier AND code-review) - this is BLOCKING
+- **MUST RUN BOTH quality review passes** (code-simplifier AND code-review) - this is BLOCKING
 - MUST COMMIT after each story (this is not optional)
 - MUST PUSH after each story (backup to remote immediately)
 - MUST UPDATE prd.json with: `passes: true`, `commit: "hash"`, `preCommit: ["code-simplifier", "code-review"]`
 - MUST LOG to progress.md after each story
 - Working directory = project root, NOT PRD directory
 - Stage ONLY files you changed for THIS story
-- **⛔ NEVER set passes: true if preCommit is empty**
+- **⛔ NEVER set passes: true if preCommit doesn't contain BOTH tools**
 
 ## Console Output Requirements
 
 **Print status at each phase for user monitoring:**
 1. **Step 2:** Print "▶ STARTING" block with story details and acceptance criteria
 2. **Step 5:** Print "QUALITY CHECKS" results (typecheck, lint, tests)
-3. **Step 5.5:** Print "PRE-COMMIT TOOLS" results with specific improvements
+3. **Step 5.5:** Print "QUALITY REVIEW" results for BOTH passes:
+   - Pass 1 (code-simplifier): refinements applied
+   - Pass 2 (code-review): issues found and fixed by severity
+   - Validation gate status
 4. **Step 7.6:** Print full "✓ STORY COMPLETE" block with:
    - Commit hashes (both feature and PRD update)
    - Files changed with +/~/- indicators
-   - Pre-commit tool details (what was improved/found)
+   - Quality review details (both passes with specifics)
    - Acceptance criteria verification
    - Push status (success or failure with error)
    - Progress bar and percentage
