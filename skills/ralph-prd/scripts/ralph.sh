@@ -44,6 +44,51 @@ print_config() {
   echo
 }
 
+get_story_counts() {
+  local total completed remaining
+  total=$(jq '.userStories | length' "$PRD_FILE" 2>/dev/null || echo "0")
+  completed=$(jq '[.userStories[] | select(.passes == true)] | length' "$PRD_FILE" 2>/dev/null || echo "0")
+  remaining=$((total - completed))
+  echo "$completed $total $remaining"
+}
+
+print_progress() {
+  local counts completed total remaining percentage bar_filled bar_empty bar
+  counts=$(get_story_counts)
+  read -r completed total remaining <<< "$counts"
+
+  if [[ "$total" -gt 0 ]]; then
+    percentage=$((completed * 100 / total))
+    bar_filled=$((completed * 20 / total))
+    bar_empty=$((20 - bar_filled))
+    bar=$(printf '█%.0s' $(seq 1 $bar_filled 2>/dev/null) || true)
+    bar+=$(printf '░%.0s' $(seq 1 $bar_empty 2>/dev/null) || true)
+
+    echo -e "${BLUE}${BANNER}${NC}"
+    echo -e "${GREEN}  Progress: [${bar}] ${completed}/${total} stories (${percentage}%)${NC}"
+    echo -e "${YELLOW}  Remaining: ${remaining} stories${NC}"
+    echo -e "${BLUE}${BANNER}${NC}"
+  fi
+}
+
+check_unpushed_commits() {
+  cd "$PROJECT_ROOT"
+  local unpushed
+  unpushed=$(git log origin/"$BRANCH_NAME"..HEAD --oneline 2>/dev/null | wc -l | tr -d ' ')
+  if [[ "$unpushed" -gt 0 ]]; then
+    echo -e "${YELLOW}Note: ${unpushed} unpushed commit(s) from previous iteration${NC}"
+  fi
+}
+
+check_git_remote() {
+  cd "$PROJECT_ROOT"
+  if ! git remote get-url origin &>/dev/null; then
+    echo -e "${YELLOW}Warning: No git remote 'origin' configured${NC}"
+    echo -e "${YELLOW}  Commits will be saved locally but not pushed${NC}"
+    echo
+  fi
+}
+
 show_help() {
   echo "Usage: ralph.sh --prd <dir> --root <dir> [options]"
   echo ""
@@ -145,16 +190,29 @@ echo "$BRANCH_NAME" > "$LAST_BRANCH_FILE"
 
 if [[ ! -f "$PROGRESS_FILE" || ! -s "$PROGRESS_FILE" ]]; then
   info "Initializing progress.md..."
+
+  # Get story count and remote URL
+  story_count=$(jq '.userStories | length' "$PRD_FILE" 2>/dev/null || echo "?")
+  remote_url=$(cd "$PROJECT_ROOT" && git remote get-url origin 2>/dev/null || echo "not configured")
+
   cat > "$PROGRESS_FILE" << EOF
 # Ralph Progress Log
 
-**PRD:** $(basename "$PRD_DIR")
-**Branch:** $BRANCH_NAME
-**Started:** $(date)
+## Session Info
+
+| Field | Value |
+|-------|-------|
+| **PRD** | $(basename "$PRD_DIR") |
+| **Branch** | \`$BRANCH_NAME\` |
+| **Started** | $(date) |
+| **Stories** | $story_count total |
+| **Remote** | $remote_url |
+
+---
 
 ## Codebase Patterns
 
-(Patterns discovered during implementation will be added here)
+*(Patterns discovered during implementation will be added here by the agent)*
 
 ---
 
@@ -194,10 +252,22 @@ EOF
 
 run_iteration() {
   local iteration=$1
-  echo -e "${BLUE}=== Iteration $iteration/$MAX_ITERATIONS ===${NC}"
+  local counts completed total
+
+  # Show iteration header with current progress
+  counts=$(get_story_counts)
+  read -r completed total _ <<< "$counts"
+
+  echo -e "${BLUE}${BANNER}${NC}"
+  echo -e "${BLUE}  ITERATION $iteration/$MAX_ITERATIONS${NC}"
+  echo -e "${BLUE}  Stories: ${completed}/${total} complete${NC}"
+  echo -e "${BLUE}${BANNER}${NC}"
   echo
 
   cd "$PROJECT_ROOT"
+
+  # Check for unpushed commits from previous iteration
+  check_unpushed_commits
 
   local output cmd
   if [[ "$TOOL" == "amp" ]]; then
@@ -209,18 +279,60 @@ run_iteration() {
 
   if echo "$output" | grep -q "<promise>COMPLETE</promise>"; then
     echo
-    print_banner "$GREEN" "Complete at iteration $iteration" "Branch: $BRANCH_NAME"
+    print_completion_summary
     exit 0
   fi
 
+  # Show progress after iteration
+  echo
+  print_progress
   echo
   sleep 2
 }
 
+print_completion_summary() {
+  local counts completed total
+  counts=$(get_story_counts)
+  read -r completed total _ <<< "$counts"
+
+  # Get commit count on this branch
+  local commit_count
+  commit_count=$(git rev-list --count main..HEAD 2>/dev/null || echo "?")
+
+  # Check if all pushed
+  local push_status="✓ All pushed"
+  local unpushed
+  unpushed=$(git log origin/"$BRANCH_NAME"..HEAD --oneline 2>/dev/null | wc -l | tr -d ' ')
+  if [[ "$unpushed" -gt 0 ]]; then
+    push_status="⚠ ${unpushed} unpushed"
+  fi
+
+  echo -e "${GREEN}${BANNER}${NC}"
+  echo -e "${GREEN}  ✓ COMPLETE${NC}"
+  echo -e "${GREEN}${BANNER}${NC}"
+  echo
+  echo -e "${GREEN}  Stories:     ${completed}/${total} complete${NC}"
+  echo -e "${GREEN}  Commits:     ${commit_count} on branch${NC}"
+  echo -e "${GREEN}  Push Status: ${push_status}${NC}"
+  echo -e "${GREEN}  Branch:      ${BRANCH_NAME}${NC}"
+  echo
+  echo -e "${YELLOW}  Next steps:${NC}"
+  echo -e "${YELLOW}    1. Review changes: git log main..${BRANCH_NAME}${NC}"
+  echo -e "${YELLOW}    2. Create PR: gh pr create${NC}"
+  echo -e "${YELLOW}    3. Or merge: git checkout main && git merge ${BRANCH_NAME}${NC}"
+  echo
+  echo -e "${GREEN}${BANNER}${NC}"
+}
+
 ensure_branch
 
+# Pre-flight checks
+check_git_remote
+
+# Show initial progress
+print_progress
+
 echo -e "${GREEN}Starting autonomous execution...${NC}"
-echo -e "${BLUE}${BANNER}${NC}"
 echo
 
 for i in $(seq 1 "$MAX_ITERATIONS"); do
@@ -228,8 +340,20 @@ for i in $(seq 1 "$MAX_ITERATIONS"); do
 done
 
 echo
+print_progress
+echo
+
+# Get story counts for final message
+final_counts=$(get_story_counts)
+read -r final_completed final_total final_remaining <<< "$final_counts"
+
 print_banner "$YELLOW" \
   "Reached max iterations ($MAX_ITERATIONS)" \
+  "" \
+  "Stories: ${final_completed}/${final_total} complete" \
+  "Remaining: ${final_remaining} stories" \
   "Branch: $BRANCH_NAME" \
-  "Check progress.md for status"
+  "" \
+  "To continue: re-run with --max N" \
+  "To review: cat $PROGRESS_FILE"
 exit 1
