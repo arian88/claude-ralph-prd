@@ -140,12 +140,14 @@ Working directory = project root.
 3. Run `git status` to capture pre-implementation state
 4. Implement it (track every file modified)
 5. Run quality checks (typecheck, lint, tests)
-6. Run pre-commit tools if available (`code-simplifier`, then `code-review`)
+6. **⛔ MANDATORY: Run BOTH pre-commit tools** (code-simplifier THEN code-review)
 7. Commit with detailed message (see prompt.md for format)
-8. Update PRD: set `passes: true`, `commit: <hash>`, `preCommit: [tools used]`
+8. Update PRD: `passes: true`, `commit: <hash>`, `preCommit: ["code-simplifier", "code-review"]`
 9. **Push to remote** (backup immediately, first push creates remote branch)
 10. **Print confirmation block** (after all steps complete)
 11. Append detailed log to progress.md
+
+**⛔ NEVER set passes: true if preCommit is empty. Both tools MUST be run.**
 
 ### Commit Requirements
 - Stage only files modified for THIS story (no `git add -A`)
