@@ -6,175 +6,158 @@ Each iteration spawns a fresh Claude instance with clean context. Memory persist
 
 Based on [Geoffrey Huntley's Ralph pattern](https://ghuntley.com/ralph/). Original repo: [snarktank/ralph](https://github.com/snarktank/ralph)
 
-## Workflow Example
+## Quick Start
 
 ```bash
-# Step 1: Create a PRD for your feature
-/ralph-prd Add task priority levels to the app
+# 1. Create PRD
+/ralph-prd Add dark mode to the settings page
 
-# Step 2: Answer the clarifying questions, PRD saved to:
-#         ./docs/prd/task-priority/prd.md
+# 2. Convert to JSON
+/ralph-prd convert ./docs/prd/dark-mode/prd.md
 
-# Step 3: Convert PRD to JSON for Ralph
-/ralph-prd convert ./docs/prd/task-priority/prd.md
+# 3. Run Ralph
+./skills/ralph-prd/scripts/ralph.sh --prd ./docs/prd/dark-mode --root .
+```
 
-# Step 4: Run Ralph (autonomous loop)
-./skills/ralph-prd/scripts/ralph.sh ./docs/prd/task-priority/
+## Script Usage
 
-# Optional: Run with more iterations
-./skills/ralph-prd/scripts/ralph.sh ./docs/prd/task-priority/ --max-iterations 15
+```
+ralph.sh --prd <dir> --root <dir> [--max <n>] [--tool <name>]
+```
 
-# Optional: Use amp instead of claude
-./skills/ralph-prd/scripts/ralph.sh ./docs/prd/task-priority/ --tool amp --max-iterations 5
+### Parameters
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--prd` | Yes | - | PRD directory (contains prd.json) |
+| `--root` | Yes | - | Project root (where code lives) |
+| `--max` | No | 10 | Maximum iterations |
+| `--tool` | No | claude | AI tool: `claude` or `amp` |
+
+### One-liner Examples
+
+```bash
+# Basic usage
+ralph.sh --prd ./docs/prd/feature --root .
+
+# More iterations
+ralph.sh --prd ./docs/prd/feature --root . --max 20
+
+# Use amp instead of claude
+ralph.sh --prd ./docs/prd/feature --root . --tool amp
+
+# Full example with absolute paths
+ralph.sh --prd /path/to/docs/prd/feature --root /path/to/project --max 15 --tool claude
+
+# Monorepo example (app in subdirectory)
+ralph.sh --prd ./apps/myapp/docs/prd/feature --root ./apps/myapp
 ```
 
 > **Script path by installation:**
 > - Plugin: `./skills/ralph-prd/scripts/ralph.sh`
 > - Manual (.claude/): `./.claude/skills/ralph-prd/scripts/ralph.sh`
 
+## How It Works
+
+1. **Creates/switches to a git branch** (from PRD `branchName` or auto-generated)
+2. **Initializes progress.md** with metadata and structure
+3. **Runs Claude in autonomous mode** (no prompts, makes decisions based on PRD)
+4. **Each iteration:** picks one story, implements it, commits, updates PRD
+5. **Stops when:** all stories have `passes: true` or max iterations reached
+
+### Safety Features
+
+- **Dedicated branch**: All work happens on a feature branch, easy to review/revert
+- **Sandboxed execution**: Claude Code sandboxes destructive commands
+- **Atomic commits**: Each story = one commit with clear message
+- **No interactive prompts**: Runs fully in background, no blocking questions
+
 ## Debugging Commands
 
 ```bash
-# Check which stories are done
-cat ./docs/prd/task-priority/prd.json | jq '.userStories[] | {id, title, passes}'
+# Check story status
+cat ./docs/prd/feature/prd.json | jq '.userStories[] | {id, title, passes}'
 
-# View learnings from previous iterations
-cat ./docs/prd/task-priority/progress.md
+# View progress and learnings
+cat ./docs/prd/feature/progress.md
 
-# Check git history
-git log --oneline -10
+# Check git history on feature branch
+git log --oneline ralph/feature-name
+
+# Diff against main
+git diff main..ralph/feature-name
 ```
 
 ## Directory Structure
 
-PRD files are stored in the docs directory:
 ```
 /docs/prd/<feature-name>/
-├── prd.md          # Human-readable PRD (created by /ralph-prd plugin)
-├── prd.json        # Machine-readable PRD (created by /ralph-prd convert)
-├── progress.md     # Iteration log (created by Ralph agent)
-└── archive/        # Previous runs (created by Ralph agent)
+├── prd.md          # Human-readable PRD (from /ralph-prd)
+├── prd.json        # Machine-readable PRD (from /ralph-prd convert)
+├── progress.md     # Iteration log (managed by Ralph)
+├── .last-branch    # Branch tracking (managed by Ralph)
+└── archive/        # Previous runs (managed by Ralph)
 ```
 
 ## Key Concepts
 
-- **Fresh context each iteration**: Each run spawns a new Claude instance. Memory persists only via git, `progress.md`, and `prd.json`
-- **Small tasks**: Each story must complete in one context window. Split large features into focused changes
-- **Feedback loops**: Typecheck, tests, and CI keep code quality high across iterations
-- **Stop condition**: When all stories have `passes: true`, Ralph outputs `<promise>COMPLETE</promise>` and exits
+- **Fresh context each iteration**: Each run spawns a new Claude instance
+- **Memory via files**: Git history, progress.md, and prd.json persist knowledge
+- **Small tasks**: Each story should complete in one context window
+- **Autonomous decisions**: Agent makes choices based on PRD, documents them
+- **Stop condition**: `<promise>COMPLETE</promise>` when all stories pass
 
 ---
 
 # Ralph Agent Instructions
 
-> **Note:** These instructions are for the Ralph agent during autonomous execution.
-> The agent runs in the PRD directory context with `prd.json` and `progress.md` present.
+> For the autonomous agent during execution.
 
-## Your Task
+## Critical: Autonomous Mode
 
-1. Read the PRD at `prd.json` (in the current working directory)
-2. Read the progress log at `progress.md` (check Codebase Patterns section first)
-3. Check you're on the correct branch from PRD `branchName`. If not, check it out or create from the current branch.
-4. Pick the **highest priority** user story where `passes: false`
-5. **Use `ultrathink`** to plan the implementation:
-   - Analyze acceptance criteria thoroughly
-   - Identify files that need to be modified
-   - Consider edge cases and potential issues
-   - Plan the implementation approach
-6. Implement that single user story
-7. Run quality checks (e.g., typecheck, lint, test - use whatever your project requires)
-8. Update AGENTS.md files if you discover reusable patterns (see below)
-9. If checks pass, commit ALL changes with message: `feat: [Story ID] - [Story Title]`
-10. Update the PRD to set `passes: true` for the completed story
-11. Append your progress to `progress.md`
+**NEVER ask questions.** This is non-interactive.
 
+- Do NOT ask "Should I continue?" - Just continue
+- Do NOT offer options - Make the best choice
+- Do NOT wait for input - It will never come
 
-## Progress Report Format
+**Make decisions based on the PRD. Document choices in progress.md.**
 
-APPEND to progress.md (never replace, always append):
-```
-## [Date/Time] - [Story ID]
-- What was implemented
-- Files changed
-- **Learnings for future iterations:**
-  - Patterns discovered (e.g., "this codebase uses X for Y")
-  - Gotchas encountered (e.g., "don't forget to update Z when changing W")
-  - Useful context (e.g., "the evaluation panel is in component X")
----
-```
+## Environment Variables
 
-The learnings section is critical - it helps future iterations avoid repeating mistakes and understand the codebase better.
+Provided at prompt start:
+- `PRD_FILE` - path to prd.json
+- `PROGRESS_FILE` - path to progress.md
+- `PRD_DIR` - PRD directory
+- `BRANCH_NAME` - git branch
 
-## Consolidate Patterns
+Working directory = project root.
 
-If you discover a **reusable pattern** that future iterations should know, add it to the `## Codebase Patterns` section at the TOP of progress.md (create it if it doesn't exist). This section should consolidate the most important learnings:
+## Task Per Iteration
 
-```
-## Codebase Patterns
-- Example: Use `sql<number>` template for aggregations
-- Example: Always use `IF NOT EXISTS` for migrations
-- Example: Export types from actions.ts for UI components
-```
+1. Read `PRD_FILE`
+2. Read `PROGRESS_FILE` (Codebase Patterns section first)
+3. Pick highest priority story with `passes: false`
+4. Implement it
+5. Run quality checks
+6. Commit: `feat: [Story ID] - [Title]`
+7. Update PRD: set `passes: true`
+8. Append to progress.md
 
-Only add patterns that are **general and reusable**, not story-specific details.
+## Decision Framework
 
-## Update AGENTS.md Files
-
-Before committing, check if any edited files have learnings worth preserving in nearby AGENTS.md files:
-
-1. **Identify directories with edited files** - Look at which directories you modified
-2. **Check for existing AGENTS.md** - Look for AGENTS.md in those directories or parent directories
-3. **Add valuable learnings** - If you discovered something future developers/agents should know:
-   - API patterns or conventions specific to that module
-   - Gotchas or non-obvious requirements
-   - Dependencies between files
-   - Testing approaches for that area
-   - Configuration or environment requirements
-
-**Examples of good AGENTS.md additions:**
-- "When modifying X, also update Y to keep them in sync"
-- "This module uses pattern Z for all API calls"
-- "Tests require the dev server running on PORT 3000"
-- "Field names must match the template exactly"
-
-**Do NOT add:**
-- Story-specific implementation details
-- Temporary debugging notes
-- Information already in progress.md
-
-Only update AGENTS.md if you have **genuinely reusable knowledge** that would help future work in that directory.
-
-## Quality Requirements
-
-- ALL commits must pass your project's quality checks (typecheck, lint, test)
-- Do NOT commit broken code
-- Keep changes focused and minimal
-- Follow existing code patterns
-
-## Browser Testing (Required for Frontend Stories)
-
-For any story that changes UI, verify it works using available **MCP browser tools** (e.g., Playwright, Chrome DevTools, Puppeteer):
-
-1. **Prefer headless mode** if the browser tool supports it (allows validation to run in background)
-2. Navigate to the relevant page
-3. Capture the page state (accessibility snapshot or screenshot)
-4. Interact with UI elements to verify functionality
-5. Take a screenshot as visual evidence for the progress log
-
-Use whatever MCP browser tools are available in your environment. If no browser tools are available, note in your progress report that manual browser verification is needed.
+| Situation | Action |
+|-----------|--------|
+| Multiple approaches | Pick simplest that meets criteria |
+| Missing details | Use reasonable defaults, document |
+| Unclear requirements | Interpret from context, document |
+| Technical tradeoffs | Prioritize: correctness > simplicity > performance |
 
 ## Stop Condition
 
-After completing a user story, check if ALL stories have `passes: true`.
-
-If ALL stories are complete and passing, reply with:
+If ALL stories have `passes: true`:
+```
 <promise>COMPLETE</promise>
+```
 
-If there are still stories with `passes: false`, end your response normally (another iteration will pick up the next story).
-
-## Important
-
-- Work on ONE story per iteration
-- Commit frequently
-- Keep CI green
-- Read the Codebase Patterns section in progress.md before starting
+Otherwise, end normally for next iteration.
