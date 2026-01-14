@@ -69,7 +69,7 @@ ralph.sh --prd ./apps/myapp/docs/prd/feature --root ./apps/myapp
 
 - **Dedicated branch**: All work happens on a feature branch, easy to review/revert
 - **Sandboxed execution**: Claude Code sandboxes destructive commands
-- **Atomic commits**: Each story = one commit with clear message
+- **Atomic commits**: Each story = 2 commits (feat implementation + chore tracking)
 - **Pre-commit quality gates**: Code is simplified and reviewed before every commit
 - **No interactive prompts**: Runs fully in background, no blocking questions
 
@@ -145,11 +145,14 @@ Working directory = project root.
 6. **⛔ MANDATORY: Run Quality Review Phase (2 passes)**
    - Pass 1: code-simplifier (simplify code)
    - Pass 2: code-review (find bugs)
-7. Commit with detailed message (see prompt.md for format)
-8. Update PRD: `passes: true`, `commit: <hash>`, `preCommit: ["code-simplifier", "code-review"]`
-9. **Push to remote** (backup immediately, first push creates remote branch)
-10. **Print confirmation block** (after all steps complete)
-11. Append detailed log to progress.md
+7. **Commit #1 (feat):** Implementation with detailed message including PRD summary and tools used
+8. Update prd.json: `passes: true`, `commit: <hash>`, `preCommit: ["code-simplifier", "code-review"]`
+9. Append detailed log to progress.md
+10. **Commit #2 (chore):** Stage BOTH prd.json AND progress.md together as single tracking commit
+11. **Push to remote** (backup immediately, first push creates remote branch)
+12. **Print confirmation block** (after all steps complete)
+
+**Result: 2 commits per story (feat + chore), NOT 3**
 
 **⛔ NEVER set passes: true if preCommit doesn't contain BOTH tools. Both passes MUST be run.**
 
@@ -254,8 +257,9 @@ Print status at each phase:
    - Pass 1: refinements applied
    - Pass 2: issues found/fixed by severity
 4. **✓ STORY COMPLETE** block with:
-   - Commit hashes (feature + PRD update)
+   - Commit hashes (2 per story: feat + chore tracking)
    - Files changed (+new, ~modified, -deleted)
+   - Tools used (browser, context7, etc. if applicable)
    - Quality review details (both passes)
    - Push status (success or failure)
    - Progress bar and percentage

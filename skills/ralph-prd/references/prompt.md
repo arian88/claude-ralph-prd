@@ -221,6 +221,8 @@ git add path/to/file1.ts path/to/file2.ts path/to/file3.ts
 git commit -m "$(cat <<'EOF'
 feat(STORY-ID): Title of the story
 
+PRD Summary: [1-2 line description of what the overall PRD is building/achieving]
+
 PRD: [Feature name from PRD description]
 Story: STORY-ID - [Story title]
 
@@ -242,16 +244,26 @@ Decisions:
 - [Decision 1]: [Justification - why this approach]
 - [Decision 2]: [Justification - why this approach]
 
+Tools Used:
+- Code Simplifier (required)
+- Code Review (required)
+- [Only list additional tools actually used, e.g.:]
+- Browser: [What was validated]
+- Context7: [What documentation was fetched]
+- Playwright: [What was tested]
+
+Quality Review:
+- Pass 1 (code-simplifier): [N] refinements applied
+- Pass 2 (code-review): [N] issues found, [N] fixed
+
 Validated:
 - Typecheck: passed
 - Lint: passed
 - Tests: passed (or N/A if no tests apply)
 
-Future Considerations:
-- [Any notes for dependent stories]
-- [Potential improvements to revisit]
-
 Refs: PRD [feature-name]
+
+Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>
 EOF
 )"
 ```
@@ -306,13 +318,36 @@ Edit `PRD_FILE` to update the completed story:
 }
 ```
 
-Then commit this change:
+### Step 7.5: Log Progress (BEFORE committing)
+
+**Append to `PROGRESS_FILE` BEFORE the tracking commit.** This ensures progress.md is committed together with prd.json.
+
+See Step 8 for the full progress.md template. Write the entry now, then proceed to commit.
+
+### Step 7.6: Commit Tracking Files (REQUIRED)
+
+**Stage BOTH tracking files and commit together:**
 ```bash
-git add "$PRD_FILE"
-git commit -m "chore(STORY-ID): mark story as complete"
+git add "$PRD_FILE" "$PROGRESS_FILE"
+git commit -m "$(cat <<'EOF'
+chore(STORY-ID): complete story and update progress
+
+Updates prd.json:
+- passes: true
+- commit: [feature-commit-hash]
+- preCommit: ["code-simplifier", "code-review"]
+
+Updates progress.md:
+- Story completion log with files changed
+- Decisions documented
+- Quality review results
+EOF
+)"
 ```
 
-### Step 7.5: Push to Remote (REQUIRED)
+**This creates a single atomic commit for ALL tracking metadata.**
+
+### Step 7.7: Push to Remote (REQUIRED)
 
 **Push both commits to the remote branch immediately after committing.**
 
@@ -334,7 +369,7 @@ git push origin "$BRANCH_NAME"
 - PR is continuously updated with new commits
 - CI/CD can run on each push for early feedback
 
-### Step 7.6: Print Confirmation Block (REQUIRED)
+### Step 7.8: Print Confirmation Block (REQUIRED)
 
 **After ALL steps are complete (commit, PRD update, push), print this block for user validation:**
 
@@ -343,10 +378,10 @@ git push origin "$BRANCH_NAME"
 ✓ STORY COMPLETE: [STORY-ID] - [Title]
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-COMMITS
-  Feature:    [short-hash] feat(STORY-ID): [title]
-  PRD Update: [short-hash] chore(STORY-ID): mark story as complete
-  Branch:     [branch-name]
+COMMITS (2 per story)
+  Feature:  [short-hash] feat(STORY-ID): [title]
+  Tracking: [short-hash] chore(STORY-ID): complete story and update progress
+  Branch:   [branch-name]
 
 FILES CHANGED ([N] files)
   + path/to/new-file.ts            [new]
@@ -402,8 +437,11 @@ NEXT UP: [NEXT-STORY-ID] - [Next Story Title]
 - `~` = existing file modified
 - `-` = file deleted
 
-### Step 8: Log Progress
-Append to `PROGRESS_FILE`:
+### Step 8: Progress Template Reference
+
+**Note:** This step is executed in Step 7.5, BEFORE the tracking commit. The progress.md changes are committed together with prd.json in Step 7.6 as a single atomic commit.
+
+**Append this to `PROGRESS_FILE`:**
 
 ```markdown
 ---
@@ -412,11 +450,11 @@ Append to `PROGRESS_FILE`:
 **Date:** [YYYY-MM-DD HH:MM]
 **Status:** ✓ Complete
 
-### Commits
+### Commits (2 per story)
 | Type | Hash | Message |
 |------|------|---------|
 | Feature | `[full-hash]` | feat(STORY-ID): [title] |
-| PRD Update | `[full-hash]` | chore(STORY-ID): mark story as complete |
+| Tracking | `[full-hash]` | chore(STORY-ID): complete story and update progress |
 
 **Branch:** `[branch-name]`
 **Pushed:** ✓ Yes (or "✗ Failed: [error]")
@@ -519,12 +557,16 @@ If `git commit` fails:
 - ONE story per iteration
 - NO questions - be decisive
 - **MUST RUN BOTH quality review passes** (code-simplifier AND code-review) - this is BLOCKING
-- MUST COMMIT after each story (this is not optional)
+- **2 COMMITS per story:**
+  1. `feat(STORY-ID)`: Implementation (includes PRD summary + tools used)
+  2. `chore(STORY-ID)`: Tracking (prd.json + progress.md combined)
 - MUST PUSH after each story (backup to remote immediately)
 - MUST UPDATE prd.json with: `passes: true`, `commit: "hash"`, `preCommit: ["code-simplifier", "code-review"]`
-- MUST LOG to progress.md after each story
+- MUST LOG to progress.md BEFORE the chore commit (so both are committed together)
 - Working directory = project root, NOT PRD directory
-- Stage ONLY files you changed for THIS story
+- Stage ONLY files you changed for THIS story (feat commit)
+- Stage BOTH prd.json AND progress.md together (chore commit)
+- **⛔ NEVER create a separate docs commit - progress.md is committed with prd.json**
 - **⛔ NEVER set passes: true if preCommit doesn't contain BOTH tools**
 
 ## Console Output Requirements
@@ -536,9 +578,10 @@ If `git commit` fails:
    - Pass 1 (code-simplifier): refinements applied
    - Pass 2 (code-review): issues found and fixed by severity
    - Validation gate status
-4. **Step 7.6:** Print full "✓ STORY COMPLETE" block with:
-   - Commit hashes (both feature and PRD update)
+4. **Step 7.8:** Print full "✓ STORY COMPLETE" block with:
+   - Commit hashes (2 per story: feat + chore tracking)
    - Files changed with +/~/- indicators
+   - Tools used (browser, context7, etc. if applicable)
    - Quality review details (both passes with specifics)
    - Acceptance criteria verification
    - Push status (success or failure with error)
