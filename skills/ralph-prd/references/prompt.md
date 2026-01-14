@@ -359,7 +359,7 @@ Append to `PROGRESS_FILE`:
 | `path/to/file2.ts` | ~ modified | [What was changed] |
 | `path/to/file3.ts` | - deleted | [Why removed] |
 
-### Pre-Commit Tools
+### Pre-Commit Tools (REQUIRED)
 
 **code-simplifier:** ✓ Applied ([N] refinements)
 - [Specific improvement 1]
@@ -368,7 +368,7 @@ Append to `PROGRESS_FILE`:
 **code-review:** ✓ Passed ([N] issues found/fixed)
 - [Issue description and fix, if any]
 
-*(or "⊘ Not available" if tools were not found)*
+**Validation:** Both tools executed successfully
 
 ### Acceptance Criteria
 - [x] [Criterion 1 - specific description]

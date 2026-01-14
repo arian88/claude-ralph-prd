@@ -187,8 +187,8 @@ When all stories have `passes: true`, Ralph outputs `<promise>COMPLETE</promise>
 ## Debugging
 
 ```bash
-# Check which stories are done
-cat ./docs/prd/task-priority/prd.json | jq '.userStories[] | {id, title, passes}'
+# Check which stories are done (with commit tracking)
+cat ./docs/prd/task-priority/prd.json | jq '.userStories[] | {id, title, passes, commit, preCommit}'
 
 # View learnings from previous iterations
 cat ./docs/prd/task-priority/progress.md
