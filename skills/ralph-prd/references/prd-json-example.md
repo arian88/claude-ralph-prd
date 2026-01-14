@@ -41,8 +41,14 @@ This document describes the JSON format that Ralph uses for autonomous PRD execu
       "priority": "number",
       "dependencies": ["string"],
       "passes": "boolean",
-      "commit": "string",
       "preCommit": ["string"],
+      "validationScenario": {
+        "type": "frontend | api | database | none",
+        "devServer": "string",
+        "port": "number",
+        "steps": "string",
+        "successCriteria": ["string"]
+      },
       "notes": "string"
     }
   ]
@@ -71,9 +77,25 @@ This document describes the JSON format that Ralph uses for autonomous PRD execu
 | `priority` | number | Execution order. Lower numbers run first |
 | `dependencies` | array | Story IDs that must be completed first. Empty array `[]` if no dependencies. Example: `["US-001", "US-002"]` |
 | `passes` | boolean | `false` initially. Set to `true` ONLY when ALL conditions are met (see below) |
-| `commit` | string | Git commit hash when story was completed. Empty string `""` initially, populated by agent after successful commit |
 | `preCommit` | array | **REQUIRED for passes: true.** Must contain `["code-simplifier", "code-review"]` when story is complete. Empty array `[]` only for incomplete stories. |
+| `validationScenario` | object | **Optional.** Runtime validation config (see validationScenario Fields below). Omit or set `type: "none"` to skip. |
 | `notes` | string | Optional field for implementation notes or blockers |
+
+### validationScenario Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `type` | string | Type of validation: `"frontend"`, `"api"`, `"database"`, or `"none"` |
+| `devServer` | string | Command to start dev server (e.g., `"npm run dev"`) |
+| `port` | number | Port the dev server runs on (e.g., `3000`) |
+| `steps` | string | Natural language description of validation steps to execute |
+| `successCriteria` | array | List of success criteria to verify (e.g., `["No console errors", "Page renders correctly"]`) |
+
+**When to use each type:**
+- `frontend`: UI components, pages, visual changes. Uses Playwright MCP browser tools.
+- `api`: Backend endpoints, server actions. Uses CURL requests.
+- `database`: Data persistence, migrations. Uses database queries.
+- `none`: No runtime validation needed (code-only changes).
 
 ### Important: `passes` Field Semantics
 
@@ -82,14 +104,15 @@ The `passes` field indicates whether a story is **fully complete**. It should ON
 1. **Quality Review Pass 1 executed** - `code-simplifier` agent was spawned and feedback applied
 2. **Quality Review Pass 2 executed** - `code-review` agent was spawned and issues fixed
 3. **preCommit is populated** - Contains `["code-simplifier", "code-review"]`
-4. **All acceptance criteria verified** - Every criterion in the array has been checked
-5. **Quality checks pass** - Typecheck, lint, and tests all succeed
-6. **Commit is successful** - Changes are committed to git with proper message
-7. **commit is populated** - The commit hash is stored in the PRD
+4. **Runtime validation passed** - If `validationScenario` exists and type is not "none"
+5. **All acceptance criteria verified** - Every criterion in the array has been checked
+6. **Quality checks pass** - Typecheck, lint, and tests all succeed
+7. **Commit is successful** - Changes are committed to git with proper message
 
 **⛔ NEVER set `passes: true` if:**
 - `preCommit` is empty `[]` - this means quality review was not run
 - `preCommit` only contains one tool - BOTH are required
+- Runtime validation failed (when `validationScenario` exists)
 - Any acceptance criterion is not met
 - Quality checks fail
 - The commit was not created
@@ -99,7 +122,6 @@ The `passes` field indicates whether a story is **fully complete**. It should ON
 ```json
 {
   "passes": true,
-  "commit": "abc123...",
   "preCommit": ["code-simplifier", "code-review"]
 }
 ```
@@ -108,7 +130,6 @@ The `passes` field indicates whether a story is **fully complete**. It should ON
 ```json
 {
   "passes": true,
-  "commit": "abc123...",
   "preCommit": ["code-simplifier"]  // Missing code-review!
 }
 ```
@@ -116,7 +137,6 @@ The `passes` field indicates whether a story is **fully complete**. It should ON
 ```json
 {
   "passes": true,
-  "commit": "abc123...",
   "preCommit": []  // Empty - no quality review!
 }
 ```
@@ -143,7 +163,6 @@ The `passes` field indicates whether a story is **fully complete**. It should ON
       "priority": 1,
       "dependencies": [],
       "passes": false,
-      "commit": "",
       "preCommit": [],
       "notes": ""
     },
@@ -154,14 +173,23 @@ The `passes` field indicates whether a story is **fully complete**. It should ON
       "acceptanceCriteria": [
         "Each task card shows colored priority badge (red=high, yellow=medium, gray=low)",
         "Priority visible without hovering or clicking",
-        "Typecheck passes",
-        "Verify in browser using MCP browser tools"
+        "Typecheck passes"
       ],
       "priority": 2,
       "dependencies": ["US-001"],
       "passes": false,
-      "commit": "",
       "preCommit": [],
+      "validationScenario": {
+        "type": "frontend",
+        "devServer": "npm run dev",
+        "port": 3000,
+        "steps": "Navigate to /tasks, verify task cards display priority badges with correct colors",
+        "successCriteria": [
+          "No console errors",
+          "Priority badges visible on each task card",
+          "Colors match specification (red/yellow/gray)"
+        ]
+      },
       "notes": ""
     },
     {
@@ -172,14 +200,24 @@ The `passes` field indicates whether a story is **fully complete**. It should ON
         "Priority dropdown in task edit modal",
         "Shows current priority as selected",
         "Saves immediately on selection change",
-        "Typecheck passes",
-        "Verify in browser using MCP browser tools"
+        "Typecheck passes"
       ],
       "priority": 3,
       "dependencies": ["US-001"],
       "passes": false,
-      "commit": "",
       "preCommit": [],
+      "validationScenario": {
+        "type": "frontend",
+        "devServer": "npm run dev",
+        "port": 3000,
+        "steps": "Navigate to /tasks, click edit on a task, change priority dropdown, verify change persists",
+        "successCriteria": [
+          "No console errors",
+          "Priority dropdown renders with current value",
+          "Selection change triggers save",
+          "New priority reflects in task card"
+        ]
+      },
       "notes": ""
     },
     {
@@ -190,14 +228,24 @@ The `passes` field indicates whether a story is **fully complete**. It should ON
         "Filter dropdown with options: All | High | Medium | Low",
         "Filter persists in URL params",
         "Empty state message when no tasks match filter",
-        "Typecheck passes",
-        "Verify in browser using MCP browser tools"
+        "Typecheck passes"
       ],
       "priority": 4,
       "dependencies": ["US-001", "US-002"],
       "passes": false,
-      "commit": "",
       "preCommit": [],
+      "validationScenario": {
+        "type": "frontend",
+        "devServer": "npm run dev",
+        "port": 3000,
+        "steps": "Navigate to /tasks, select 'High' filter, verify URL updates and only high priority tasks shown",
+        "successCriteria": [
+          "No console errors",
+          "URL contains priority filter param",
+          "Only high priority tasks displayed",
+          "Empty state shows when no matches"
+        ]
+      },
       "notes": ""
     }
   ]
@@ -219,9 +267,38 @@ The `passes` field indicates whether a story is **fully complete**. It should ON
   "priority": 1,
   "dependencies": [],
   "passes": true,
-  "commit": "a1b2c3d4e5f6789012345678901234567890abcd",
   "preCommit": ["code-simplifier", "code-review"],
   "notes": "Used Prisma enum for type safety. Code review found no issues."
+}
+```
+
+### Example of Completed Story with Runtime Validation
+
+```json
+{
+  "id": "US-002",
+  "title": "Display priority indicator on task cards",
+  "description": "As a user, I want to see task priority at a glance.",
+  "acceptanceCriteria": [
+    "Each task card shows colored priority badge",
+    "Priority visible without hovering",
+    "Typecheck passes"
+  ],
+  "priority": 2,
+  "dependencies": ["US-001"],
+  "passes": true,
+  "preCommit": ["code-simplifier", "code-review"],
+  "validationScenario": {
+    "type": "frontend",
+    "devServer": "npm run dev",
+    "port": 3000,
+    "steps": "Navigate to /tasks, verify badges render correctly",
+    "successCriteria": [
+      "No console errors",
+      "Priority badges visible"
+    ]
+  },
+  "notes": "Runtime validation passed. No console errors, badges render correctly."
 }
 ```
 
