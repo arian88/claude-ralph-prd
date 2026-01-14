@@ -143,13 +143,28 @@ Working directory = project root.
 6. Run pre-commit tools if available (`code-simplifier`, then `code-review`)
 7. Commit with detailed message (see prompt.md for format)
 8. Update PRD: set `passes: true`, `commit: <hash>`, `preCommit: [tools used]`
-9. Append detailed log to progress.md
+9. **Push to remote** (backup immediately, first push creates remote branch)
+10. **Print confirmation block** (after all steps complete)
+11. Append detailed log to progress.md
 
 ### Commit Requirements
 - Stage only files modified for THIS story (no `git add -A`)
 - Use detailed commit format with: PRD context, acceptance criteria, files changed, decisions, validation
 - Print confirmation block after successful commit
 - Only set `passes: true` if commit was successful
+
+### Console Output (for monitoring)
+Print status at each phase:
+1. **▶ STARTING** block when selecting story (shows dependencies, criteria)
+2. **QUALITY CHECKS** results after running checks
+3. **PRE-COMMIT TOOLS** results with specific improvements made
+4. **✓ STORY COMPLETE** block with:
+   - Commit hashes (feature + PRD update)
+   - Files changed (+new, ~modified, -deleted)
+   - Pre-commit tool details
+   - Push status (success or failure)
+   - Progress bar and percentage
+   - Next story preview
 
 ## Decision Framework
 
