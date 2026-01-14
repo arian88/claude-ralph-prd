@@ -83,61 +83,71 @@ QUALITY CHECKS
 
 Do NOT proceed to commit if checks fail. Fix issues first.
 
-### Step 5.5: Pre-Commit Tools (OPTIONAL but RECOMMENDED)
+### Step 5.5: Pre-Commit Tools (MANDATORY - BLOCKING)
 
-If these tools are available, run them before committing. Track which tools were used in the `preCommit` field.
+**⛔ You CANNOT proceed to commit until BOTH pre-commit tools have been executed.**
 
-#### Order of execution (recommended):
+This step is a **hard gate**. A story can ONLY have `passes: true` if `preCommit` contains BOTH tools.
 
-**1. First: code-simplifier** (simplify before review)
-- Simplifies and refines code for clarity, consistency, maintainability
-- Preserves functionality while improving how code does things
-- Makes code cleaner for the subsequent review
+#### REQUIRED: Run Both Tools in Order
 
-**Check if available:** Try to invoke `code-simplifier` agent
-- If available: Run it on the files you modified
-- Apply any suggested improvements
-- Track in preCommit: add `"code-simplifier"` to the array
+**Tool 1: code-simplifier** (run FIRST)
 
-**2. Second: code-review** (review the simplified code)
-- Reviews code for bugs, CLAUDE.md compliance, and issues
-- Provides confidence-scored feedback
-- Final quality gate before commit
+You MUST invoke the Task tool like this:
+```json
+{
+  "subagent_type": "code-simplifier:code-simplifier",
+  "prompt": "Simplify and refine these files for clarity and maintainability while preserving functionality:\n- /full/path/to/file1.ts\n- /full/path/to/file2.ts",
+  "description": "Simplify modified files"
+}
+```
 
-**Check if available:** Try to invoke `code-review` agent
-- If available: Run it on the files you modified
-- Fix any issues with confidence score >= 80
-- Track in preCommit: add `"code-review"` to the array
+After receiving results:
+- Apply ALL suggested improvements to your code
+- If code was modified, re-run quality checks (typecheck, lint)
 
-#### Why this order?
-1. **Simplify first**: Clean code produces fewer false positives in review
-2. **Review second**: Catches real issues in the already-simplified code
-3. **Track in preCommit**: Provides audit trail of quality checks performed
+**Tool 2: code-review** (run SECOND, after applying simplifier changes)
 
-#### If tools are NOT available:
-- Skip this step and proceed to commit
-- Leave `preCommit` as empty array `[]`
-- Note in progress.md that pre-commit tools were not available
+You MUST invoke the Task tool like this:
+```json
+{
+  "subagent_type": "code-review:code-review",
+  "prompt": "Review these files for bugs, issues, and best practices:\n- /full/path/to/file1.ts\n- /full/path/to/file2.ts",
+  "description": "Review modified files"
+}
+```
 
-#### Applying feedback:
-When these tools provide feedback:
-1. **Read all suggestions carefully**
-2. **Apply improvements that make sense**
-3. **Re-run quality checks after changes**
-4. **Document significant changes in commit message**
+After receiving results:
+- Fix ALL issues with confidence score >= 80
+- If code was modified, re-run quality checks (typecheck, lint)
 
-Do NOT ignore feedback. The purpose of these tools is to improve code quality.
+#### Validation Gate
 
-**Print pre-commit tool results:**
+Before proceeding to Step 6 (Commit), verify:
+- [ ] code-simplifier was executed (you have results)
+- [ ] code-review was executed (you have results)
+- [ ] All high-confidence issues were fixed
+- [ ] Quality checks still pass after changes
+
+**If you cannot run these tools (error or unavailable):**
+- STOP the iteration
+- Log the error in progress.md
+- Do NOT mark the story as complete
+- Do NOT set passes: true
+
+#### Print Results (REQUIRED)
 ```
 PRE-COMMIT TOOLS
   ✓ code-simplifier: [N] refinements applied
     - [Specific change 1]
     - [Specific change 2]
-  ✓ code-review: Passed ([N] issues)
-    - [Issue found/fixed, if any]
+  ✓ code-review: [N] issues found, [N] fixed
+    - [Issue and fix description]
+
+VALIDATION: ✓ Both tools executed, ready to commit
 ```
-(or "⊘ code-simplifier: Not available" if tool not found)
+
+**⛔ STOP HERE if either tool failed or was not executed. Do NOT proceed to commit.**
 
 ### Step 6: Commit (CRITICAL)
 
@@ -195,12 +205,40 @@ git log -1 --oneline
 ```
 
 ### Step 7: Update PRD
-Edit `PRD_FILE` to update the completed story:
-1. Set `passes: true`
-2. Set `commit` to the hash from Step 6c (e.g., `"commit": "abc123def456..."`)
-3. Set `preCommit` to the list of tools used in Step 5.5 (e.g., `"preCommit": ["code-simplifier", "code-review"]`)
 
-**IMPORTANT:** Only set `passes: true` if ALL acceptance criteria were verified.
+**⛔ VALIDATION REQUIRED before updating PRD:**
+
+Before setting `passes: true`, verify ALL conditions are met:
+1. ✓ Both pre-commit tools were executed (code-simplifier AND code-review)
+2. ✓ All acceptance criteria were verified
+3. ✓ Quality checks pass (typecheck, lint, tests)
+4. ✓ Commit was successfully created (you have a commit hash)
+
+**If ANY condition is not met, do NOT set passes: true. Stop and log the issue.**
+
+Edit `PRD_FILE` to update the completed story:
+1. Set `preCommit` to `["code-simplifier", "code-review"]` (MUST contain both)
+2. Set `commit` to the hash from Step 6c (e.g., `"commit": "abc123def456..."`)
+3. Set `passes: true` ONLY if preCommit contains both tools AND commit is populated
+
+**Example of valid completed story:**
+```json
+{
+  "id": "US-001",
+  "passes": true,
+  "commit": "abc123def456...",
+  "preCommit": ["code-simplifier", "code-review"]
+}
+```
+
+**⛔ INVALID - Do NOT do this:**
+```json
+{
+  "passes": true,
+  "commit": "abc123",
+  "preCommit": []  // INVALID: preCommit is empty!
+}
+```
 
 Then commit this change:
 ```bash
@@ -249,13 +287,13 @@ FILES CHANGED ([N] files)
   ~ path/to/modified-file.ts       [modified]
   - path/to/deleted-file.ts        [deleted]
 
-PRE-COMMIT TOOLS
+PRE-COMMIT TOOLS (REQUIRED)
   ✓ code-simplifier: [N] refinements applied
     - [Specific improvement 1]
     - [Specific improvement 2]
-  ✓ code-review: [Passed/Fixed N issues]
+  ✓ code-review: [N] issues found, [N] fixed
     - [Issue fixed, if any]
-  (or "⊘ Not available" if tools were not found)
+  VALIDATED: Both tools executed successfully
 
 ACCEPTANCE CRITERIA
   ✓ [Criterion 1 - be specific]
@@ -409,12 +447,14 @@ If `git commit` fails:
 
 - ONE story per iteration
 - NO questions - be decisive
+- **MUST RUN BOTH pre-commit tools** (code-simplifier AND code-review) - this is BLOCKING
 - MUST COMMIT after each story (this is not optional)
 - MUST PUSH after each story (backup to remote immediately)
-- MUST UPDATE prd.json after each story (passes, commit, preCommit)
+- MUST UPDATE prd.json with: `passes: true`, `commit: "hash"`, `preCommit: ["code-simplifier", "code-review"]`
 - MUST LOG to progress.md after each story
 - Working directory = project root, NOT PRD directory
 - Stage ONLY files you changed for THIS story
+- **⛔ NEVER set passes: true if preCommit is empty**
 
 ## Console Output Requirements
 

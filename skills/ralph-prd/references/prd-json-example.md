@@ -70,25 +70,46 @@ This document describes the JSON format that Ralph uses for autonomous PRD execu
 | `acceptanceCriteria` | array | List of verifiable criteria. Must include "Typecheck passes" |
 | `priority` | number | Execution order. Lower numbers run first |
 | `dependencies` | array | Story IDs that must be completed first. Empty array `[]` if no dependencies. Example: `["US-001", "US-002"]` |
-| `passes` | boolean | `false` initially. Set to `true` ONLY when ALL acceptance criteria are verified and commit is successful |
+| `passes` | boolean | `false` initially. Set to `true` ONLY when ALL conditions are met (see below) |
 | `commit` | string | Git commit hash when story was completed. Empty string `""` initially, populated by agent after successful commit |
-| `preCommit` | array | Tools/agents executed before commit. Empty array `[]` if no pre-commit tools were used. Example: `["code-simplifier", "code-review"]` |
+| `preCommit` | array | **REQUIRED for passes: true.** Must contain `["code-simplifier", "code-review"]` when story is complete. Empty array `[]` only for incomplete stories. |
 | `notes` | string | Optional field for implementation notes or blockers |
 
 ### Important: `passes` Field Semantics
 
-The `passes` field indicates whether a story is **fully complete**. It should ONLY be set to `true` when:
+The `passes` field indicates whether a story is **fully complete**. It should ONLY be set to `true` when ALL of these conditions are met:
 
-1. **All acceptance criteria are verified** - Every criterion in the array has been checked
-2. **Quality checks pass** - Typecheck, lint, and tests all succeed
-3. **Commit is successful** - Changes are committed to git with proper message
-4. **commit is populated** - The commit hash is stored in the PRD
+1. **Pre-commit tools executed** - BOTH `code-simplifier` AND `code-review` were run
+2. **preCommit is populated** - Contains `["code-simplifier", "code-review"]`
+3. **All acceptance criteria verified** - Every criterion in the array has been checked
+4. **Quality checks pass** - Typecheck, lint, and tests all succeed
+5. **Commit is successful** - Changes are committed to git with proper message
+6. **commit is populated** - The commit hash is stored in the PRD
 
-**NEVER set `passes: true` if:**
+**⛔ NEVER set `passes: true` if:**
+- `preCommit` is empty `[]` - this means pre-commit tools were not run
 - Any acceptance criterion is not met
 - Quality checks fail
 - The commit was not created
 - You are unsure whether criteria are satisfied
+
+**Valid completed story:**
+```json
+{
+  "passes": true,
+  "commit": "abc123...",
+  "preCommit": ["code-simplifier", "code-review"]
+}
+```
+
+**⛔ INVALID (will be rejected):**
+```json
+{
+  "passes": true,
+  "commit": "abc123...",
+  "preCommit": []
+}
+```
 
 ---
 
