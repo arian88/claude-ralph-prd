@@ -62,7 +62,7 @@ ralph.sh --prd ./apps/myapp/docs/prd/feature --root ./apps/myapp
 1. **Creates/switches to a git branch** (from PRD `branchName` or auto-generated)
 2. **Initializes progress.md** with metadata and structure
 3. **Runs Claude in autonomous mode** (no prompts, makes decisions based on PRD)
-4. **Each iteration:** picks one story, implements it, commits, updates PRD
+4. **Each iteration:** picks one story, implements it, runs pre-commit tools, commits, updates PRD
 5. **Stops when:** all stories have `passes: true` or max iterations reached
 
 ### Safety Features
@@ -70,6 +70,7 @@ ralph.sh --prd ./apps/myapp/docs/prd/feature --root ./apps/myapp
 - **Dedicated branch**: All work happens on a feature branch, easy to review/revert
 - **Sandboxed execution**: Claude Code sandboxes destructive commands
 - **Atomic commits**: Each story = one commit with clear message
+- **Pre-commit quality gates**: Code is simplified and reviewed before every commit
 - **No interactive prompts**: Runs fully in background, no blocking questions
 
 ## Debugging Commands
@@ -105,6 +106,7 @@ git diff main..ralph/feature-name
 - **Memory via files**: Git history, progress.md, and prd.json persist knowledge
 - **Small tasks**: Each story should complete in one context window
 - **Autonomous decisions**: Agent makes choices based on PRD, documents them
+- **Two-pass quality review**: Every story runs code-simplifier AND code-review before committing
 - **Stop condition**: `<promise>COMPLETE</promise>` when all stories pass
 
 ---
@@ -140,30 +142,121 @@ Working directory = project root.
 3. Run `git status` to capture pre-implementation state
 4. Implement it (track every file modified)
 5. Run quality checks (typecheck, lint, tests)
-6. **⛔ MANDATORY: Run BOTH pre-commit tools** (code-simplifier THEN code-review)
+6. **⛔ MANDATORY: Run Quality Review Phase (2 passes)**
+   - Pass 1: code-simplifier (simplify code)
+   - Pass 2: code-review (find bugs)
 7. Commit with detailed message (see prompt.md for format)
 8. Update PRD: `passes: true`, `commit: <hash>`, `preCommit: ["code-simplifier", "code-review"]`
 9. **Push to remote** (backup immediately, first push creates remote branch)
 10. **Print confirmation block** (after all steps complete)
 11. Append detailed log to progress.md
 
-**⛔ NEVER set passes: true if preCommit is empty. Both tools MUST be run.**
+**⛔ NEVER set passes: true if preCommit doesn't contain BOTH tools. Both passes MUST be run.**
 
-### Commit Requirements
+---
+
+## Quality Review Phase (MANDATORY - 2 PASSES)
+
+**Both passes are MANDATORY before every commit.**
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│                 QUALITY REVIEW PHASE                         │
+│                                                              │
+│  Pass 1: code-simplifier  →  Apply Changes  →  Quality Check │
+│                            ↓                                 │
+│  Pass 2: code-review      →  Fix Issues     →  Quality Check │
+│                            ↓                                 │
+│  Validation Gate          →  Ready to Commit                 │
+└──────────────────────────────────────────────────────────────┘
+```
+
+---
+
+### Pass 1: Code Simplification
+
+Spawn the `code-simplifier:code-simplifier` agent with fresh context.
+
+**Invoke via Task tool:**
+```json
+{
+  "subagent_type": "code-simplifier:code-simplifier",
+  "prompt": "Simplify and refine these files for clarity and maintainability while preserving functionality:\n- /absolute/path/to/file1.ts\n- /absolute/path/to/file2.ts",
+  "description": "Simplify modified files"
+}
+```
+
+**What it does:**
+- Simplifies code for clarity and maintainability
+- Preserves exact functionality
+- Applies project coding standards
+- Improves naming, reduces complexity
+
+**After running:**
+1. Apply ALL suggested improvements
+2. Re-run quality checks if code changed
+
+---
+
+### Pass 2: Code Review
+
+Spawn a `general-purpose` agent with fresh context to review for bugs.
+
+**Invoke via Task tool:**
+```json
+{
+  "subagent_type": "general-purpose",
+  "prompt": "You are a senior code reviewer. Review the following modified files for bugs and issues.\n\n## Review Focus\n1. **Bugs**: Logic errors, null handling, race conditions\n2. **Security**: Input validation, injection vulnerabilities\n3. **Edge Cases**: Error handling, boundary conditions\n4. **Correctness**: Does code do what it should?\n\n## Output Format\nFor each issue:\n- File: /path/to/file.ts\n- Line: 42\n- Severity: HIGH | MEDIUM | LOW\n- Description: What is wrong\n- Suggested Fix: How to fix\n\n## Rules\n- Only report >80% confidence issues\n- Do NOT report style issues (handled by code-simplifier)\n- If no issues: respond 'No issues found.'\n\n## Files to Review\n- /absolute/path/to/file1.ts\n- /absolute/path/to/file2.ts",
+  "description": "Review modified files for bugs and issues"
+}
+```
+
+**What it does:**
+- Reviews code with fresh context (no implementation bias)
+- Finds bugs, security issues, edge cases
+- Provides severity ratings (HIGH/MEDIUM/LOW)
+
+**After running:**
+1. Fix ALL HIGH severity issues
+2. Fix MEDIUM issues if reasonable
+3. Re-run quality checks if code changed
+
+---
+
+### Validation Gate
+
+Before committing, verify:
+- ✓ Pass 1 (code-simplifier) executed
+- ✓ Pass 2 (code-review) executed
+- ✓ All HIGH severity issues fixed
+- ✓ Quality checks pass
+
+**preCommit must contain:** `["code-simplifier", "code-review"]`
+
+---
+
+## Commit Requirements
+
 - Stage only files modified for THIS story (no `git add -A`)
 - Use detailed commit format with: PRD context, acceptance criteria, files changed, decisions, validation
 - Print confirmation block after successful commit
-- Only set `passes: true` if commit was successful
+- Only set `passes: true` if:
+  - BOTH quality review passes were run
+  - Commit was successful
+  - All acceptance criteria verified
 
 ### Console Output (for monitoring)
+
 Print status at each phase:
 1. **▶ STARTING** block when selecting story (shows dependencies, criteria)
 2. **QUALITY CHECKS** results after running checks
-3. **PRE-COMMIT TOOLS** results with specific improvements made
+3. **QUALITY REVIEW** results for both passes:
+   - Pass 1: refinements applied
+   - Pass 2: issues found/fixed by severity
 4. **✓ STORY COMPLETE** block with:
    - Commit hashes (feature + PRD update)
    - Files changed (+new, ~modified, -deleted)
-   - Pre-commit tool details
+   - Quality review details (both passes)
    - Push status (success or failure)
    - Progress bar and percentage
    - Next story preview

@@ -79,15 +79,17 @@ This document describes the JSON format that Ralph uses for autonomous PRD execu
 
 The `passes` field indicates whether a story is **fully complete**. It should ONLY be set to `true` when ALL of these conditions are met:
 
-1. **Pre-commit tools executed** - BOTH `code-simplifier` AND `code-review` were run
-2. **preCommit is populated** - Contains `["code-simplifier", "code-review"]`
-3. **All acceptance criteria verified** - Every criterion in the array has been checked
-4. **Quality checks pass** - Typecheck, lint, and tests all succeed
-5. **Commit is successful** - Changes are committed to git with proper message
-6. **commit is populated** - The commit hash is stored in the PRD
+1. **Quality Review Pass 1 executed** - `code-simplifier` agent was spawned and feedback applied
+2. **Quality Review Pass 2 executed** - `code-review` agent was spawned and issues fixed
+3. **preCommit is populated** - Contains `["code-simplifier", "code-review"]`
+4. **All acceptance criteria verified** - Every criterion in the array has been checked
+5. **Quality checks pass** - Typecheck, lint, and tests all succeed
+6. **Commit is successful** - Changes are committed to git with proper message
+7. **commit is populated** - The commit hash is stored in the PRD
 
 **⛔ NEVER set `passes: true` if:**
-- `preCommit` is empty `[]` - this means pre-commit tools were not run
+- `preCommit` is empty `[]` - this means quality review was not run
+- `preCommit` only contains one tool - BOTH are required
 - Any acceptance criterion is not met
 - Quality checks fail
 - The commit was not created
@@ -107,7 +109,15 @@ The `passes` field indicates whether a story is **fully complete**. It should ON
 {
   "passes": true,
   "commit": "abc123...",
-  "preCommit": []
+  "preCommit": ["code-simplifier"]  // Missing code-review!
+}
+```
+
+```json
+{
+  "passes": true,
+  "commit": "abc123...",
+  "preCommit": []  // Empty - no quality review!
 }
 ```
 
@@ -211,7 +221,7 @@ The `passes` field indicates whether a story is **fully complete**. It should ON
   "passes": true,
   "commit": "a1b2c3d4e5f6789012345678901234567890abcd",
   "preCommit": ["code-simplifier", "code-review"],
-  "notes": "Used Prisma enum for type safety"
+  "notes": "Used Prisma enum for type safety. Code review found no issues."
 }
 ```
 
