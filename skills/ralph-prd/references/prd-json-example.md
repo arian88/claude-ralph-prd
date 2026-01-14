@@ -29,20 +29,21 @@ This document describes the JSON format that Ralph uses for autonomous PRD execu
 
 ```json
 {
-  "project": "string",           // Project name
-  "branchName": "string",        // Git branch (format: ralph/feature-name)
-  "description": "string",       // Brief feature description
+  "project": "string",
+  "branchName": "string",
+  "description": "string",
   "userStories": [
     {
-      "id": "string",            // Story ID (format: US-001, US-002, etc.)
-      "title": "string",         // Short descriptive title
-      "description": "string",   // User story format: "As a [user], I want [feature] so that [benefit]"
-      "acceptanceCriteria": [    // Array of verifiable criteria
-        "string"
-      ],
-      "priority": "number",      // Execution order (1 = first)
-      "passes": "boolean",       // true when story is complete
-      "notes": "string"          // Optional notes from implementation
+      "id": "string",
+      "title": "string",
+      "description": "string",
+      "acceptanceCriteria": ["string"],
+      "priority": "number",
+      "dependencies": ["string"],
+      "passes": "boolean",
+      "commit": "string",
+      "preCommit": ["string"],
+      "notes": "string"
     }
   ]
 }
@@ -67,9 +68,27 @@ This document describes the JSON format that Ralph uses for autonomous PRD execu
 | `title` | string | Short, descriptive title (5-10 words) |
 | `description` | string | Full user story in "As a... I want... so that..." format |
 | `acceptanceCriteria` | array | List of verifiable criteria. Must include "Typecheck passes" |
-| `priority` | number | Execution order. Lower numbers run first. Use for dependencies |
-| `passes` | boolean | `false` initially, set to `true` when story is complete |
+| `priority` | number | Execution order. Lower numbers run first |
+| `dependencies` | array | Story IDs that must be completed first. Empty array `[]` if no dependencies. Example: `["US-001", "US-002"]` |
+| `passes` | boolean | `false` initially. Set to `true` ONLY when ALL acceptance criteria are verified and commit is successful |
+| `commit` | string | Git commit hash when story was completed. Empty string `""` initially, populated by agent after successful commit |
+| `preCommit` | array | Tools/agents executed before commit. Empty array `[]` if no pre-commit tools were used. Example: `["code-simplifier", "code-review"]` |
 | `notes` | string | Optional field for implementation notes or blockers |
+
+### Important: `passes` Field Semantics
+
+The `passes` field indicates whether a story is **fully complete**. It should ONLY be set to `true` when:
+
+1. **All acceptance criteria are verified** - Every criterion in the array has been checked
+2. **Quality checks pass** - Typecheck, lint, and tests all succeed
+3. **Commit is successful** - Changes are committed to git with proper message
+4. **commit is populated** - The commit hash is stored in the PRD
+
+**NEVER set `passes: true` if:**
+- Any acceptance criterion is not met
+- Quality checks fail
+- The commit was not created
+- You are unsure whether criteria are satisfied
 
 ---
 
@@ -91,7 +110,10 @@ This document describes the JSON format that Ralph uses for autonomous PRD execu
         "Typecheck passes"
       ],
       "priority": 1,
+      "dependencies": [],
       "passes": false,
+      "commit": "",
+      "preCommit": [],
       "notes": ""
     },
     {
@@ -105,7 +127,10 @@ This document describes the JSON format that Ralph uses for autonomous PRD execu
         "Verify in browser using MCP browser tools"
       ],
       "priority": 2,
+      "dependencies": ["US-001"],
       "passes": false,
+      "commit": "",
+      "preCommit": [],
       "notes": ""
     },
     {
@@ -120,7 +145,10 @@ This document describes the JSON format that Ralph uses for autonomous PRD execu
         "Verify in browser using MCP browser tools"
       ],
       "priority": 3,
+      "dependencies": ["US-001"],
       "passes": false,
+      "commit": "",
+      "preCommit": [],
       "notes": ""
     },
     {
@@ -135,10 +163,34 @@ This document describes the JSON format that Ralph uses for autonomous PRD execu
         "Verify in browser using MCP browser tools"
       ],
       "priority": 4,
+      "dependencies": ["US-001", "US-002"],
       "passes": false,
+      "commit": "",
+      "preCommit": [],
       "notes": ""
     }
   ]
+}
+```
+
+### Example of Completed Story (with tracking fields)
+
+```json
+{
+  "id": "US-001",
+  "title": "Add priority field to database",
+  "description": "As a developer, I need to store task priority so it persists across sessions.",
+  "acceptanceCriteria": [
+    "Add priority column to tasks table: 'high' | 'medium' | 'low' (default 'medium')",
+    "Generate and run migration successfully",
+    "Typecheck passes"
+  ],
+  "priority": 1,
+  "dependencies": [],
+  "passes": true,
+  "commit": "a1b2c3d4e5f6789012345678901234567890abcd",
+  "preCommit": ["code-simplifier", "code-review"],
+  "notes": "Used Prisma enum for type safety"
 }
 ```
 
@@ -170,6 +222,19 @@ Stories execute in priority order. Earlier stories must not depend on later ones
 3. UI components that use the backend
 4. Dashboard/summary views
 
+### Dependencies
+Use the `dependencies` field to declare which stories must be completed first.
+
+**Examples:**
+- UI component depends on database schema: `"dependencies": ["US-001"]`
+- Filter feature depends on both schema and display: `"dependencies": ["US-001", "US-002"]`
+- No dependencies (first story or independent): `"dependencies": []`
+
+**Rules:**
+- Dependencies must reference valid story IDs within the same PRD
+- Agent will skip stories whose dependencies have `passes: false`
+- Circular dependencies are not allowed
+
 ### Acceptance Criteria
 Must be verifiable, not vague.
 
@@ -190,28 +255,30 @@ After creating the prd.json, provide the user with this copy-paste command (usin
 prd.json saved to: `./docs/prd/task-priority/prd.json`
 
 **Next step** - Run Ralph autonomous agent:
-./skills/ralph-prd/scripts/ralph.sh ./docs/prd/task-priority/
+./skills/ralph-prd/scripts/ralph.sh --prd ./docs/prd/task-priority --root .
 ```
 
 ### Ralph Options
 
 ```bash
 # Basic usage (defaults to claude tool, 10 iterations)
-./skills/ralph-prd/scripts/ralph.sh ./docs/prd/<feature>/
+./skills/ralph-prd/scripts/ralph.sh --prd ./docs/prd/<feature> --root .
 
 # With more iterations
-./skills/ralph-prd/scripts/ralph.sh ./docs/prd/<feature>/ --max-iterations 15
+./skills/ralph-prd/scripts/ralph.sh --prd ./docs/prd/<feature> --root . --max 15
 
 # With different tool
-./skills/ralph-prd/scripts/ralph.sh ./docs/prd/<feature>/ --tool amp
+./skills/ralph-prd/scripts/ralph.sh --prd ./docs/prd/<feature> --root . --tool amp
 
-# With both options
-./skills/ralph-prd/scripts/ralph.sh ./docs/prd/<feature>/ --tool amp --max-iterations 5
+# With all options
+./skills/ralph-prd/scripts/ralph.sh --prd ./docs/prd/<feature> --root . --max 20 --tool claude
 ```
 
 **Options:**
+- `--prd <dir>` - PRD directory containing prd.json (required)
+- `--root <dir>` - Project root directory where code lives (required)
 - `--tool <amp|claude>` - AI tool to use (default: claude)
-- `--max-iterations <number>` - Maximum iterations (default: 10)
+- `--max <number>` - Maximum iterations (default: 10)
 
 > **Note:** Script path depends on installation method:
 > - Plugin installation: Skills are automatically available

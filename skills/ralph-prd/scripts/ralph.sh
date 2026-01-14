@@ -3,39 +3,45 @@
 # Runs Claude in a safe, non-interactive mode on a dedicated branch
 set -e
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROMPT_FILE="$SCRIPT_DIR/../references/prompt.md"
+readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+readonly PROMPT_FILE="$SCRIPT_DIR/../references/prompt.md"
 
-# Default values
+readonly RED='\033[0;31m'
+readonly GREEN='\033[0;32m'
+readonly YELLOW='\033[1;33m'
+readonly BLUE='\033[0;34m'
+readonly NC='\033[0m'
+readonly BANNER="━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
 TOOL="claude"
 MAX_ITERATIONS=10
 PRD_DIR=""
 PROJECT_ROOT=""
 
-# Colors for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m' # No Color
+error() { echo -e "${RED}Error: $1${NC}" >&2; }
+info() { echo -e "${YELLOW}$1${NC}"; }
 
-print_header() {
-  echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-  echo -e "${BLUE}  Ralph - Autonomous PRD Agent${NC}"
-  echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+print_banner() {
+  local color="${1:-$BLUE}"
+  shift
+  echo -e "${color}${BANNER}${NC}"
+  for line in "$@"; do
+    echo -e "${color}  $line${NC}"
+  done
+  echo -e "${color}${BANNER}${NC}"
 }
 
 print_config() {
-  echo ""
+  echo
   echo -e "${GREEN}Configuration:${NC}"
-  echo -e "  PRD Directory:  ${YELLOW}$PRD_DIR${NC}"
-  echo -e "  Project Root:   ${YELLOW}$PROJECT_ROOT${NC}"
-  echo -e "  PRD File:       ${YELLOW}$PRD_FILE${NC}"
-  echo -e "  Progress File:  ${YELLOW}$PROGRESS_FILE${NC}"
-  echo -e "  Branch:         ${YELLOW}$BRANCH_NAME${NC}"
-  echo -e "  Tool:           ${YELLOW}$TOOL${NC}"
-  echo -e "  Max Iterations: ${YELLOW}$MAX_ITERATIONS${NC}"
-  echo ""
+  echo -e "  PRD Directory:  ${YELLOW}${PRD_DIR}${NC}"
+  echo -e "  Project Root:   ${YELLOW}${PROJECT_ROOT}${NC}"
+  echo -e "  PRD File:       ${YELLOW}${PRD_FILE}${NC}"
+  echo -e "  Progress File:  ${YELLOW}${PROGRESS_FILE}${NC}"
+  echo -e "  Branch:         ${YELLOW}${BRANCH_NAME}${NC}"
+  echo -e "  Tool:           ${YELLOW}${TOOL}${NC}"
+  echo -e "  Max Iterations: ${YELLOW}${MAX_ITERATIONS}${NC}"
+  echo
 }
 
 show_help() {
@@ -69,79 +75,76 @@ while [[ $# -gt 0 ]]; do
     --max) MAX_ITERATIONS="$2"; shift 2 ;;
     --max=*) MAX_ITERATIONS="${1#*=}"; shift ;;
     -h|--help) show_help; exit 0 ;;
-    -*) echo -e "${RED}Error: Unknown option: $1${NC}" >&2; show_help; exit 1 ;;
-    *) echo -e "${RED}Error: Unexpected argument: $1${NC}" >&2; show_help; exit 1 ;;
+    -*) error "Unknown option: $1"; show_help; exit 1 ;;
+    *) error "Unexpected argument: $1"; show_help; exit 1 ;;
   esac
 done
 
-# Validate required arguments
-if [[ -z "$PRD_DIR" ]]; then
-  echo -e "${RED}Error: --prd is required${NC}"
-  echo ""
-  show_help
-  exit 1
-fi
+require_arg() {
+  if [[ -z "$2" ]]; then
+    error "$1 is required"
+    echo
+    show_help
+    exit 1
+  fi
+}
 
-if [[ -z "$PROJECT_ROOT" ]]; then
-  echo -e "${RED}Error: --root is required${NC}"
-  echo ""
-  show_help
-  exit 1
-fi
+resolve_path() {
+  cd "$1" 2>/dev/null && pwd || { error "$2 not found: $1"; exit 1; }
+}
 
-# Resolve to absolute paths
-PRD_DIR="$(cd "$PRD_DIR" 2>/dev/null && pwd)" || { echo -e "${RED}Error: PRD directory not found: $PRD_DIR${NC}"; exit 1; }
-PROJECT_ROOT="$(cd "$PROJECT_ROOT" 2>/dev/null && pwd)" || { echo -e "${RED}Error: Project root not found: $PROJECT_ROOT${NC}"; exit 1; }
+validate_inputs() {
+  require_arg "--prd" "$PRD_DIR"
+  require_arg "--root" "$PROJECT_ROOT"
 
-# Validate tool
-if [[ "$TOOL" != "amp" && "$TOOL" != "claude" ]]; then
-  echo -e "${RED}Error: --tool must be 'amp' or 'claude'${NC}"
-  exit 1
-fi
+  PRD_DIR="$(resolve_path "$PRD_DIR" "PRD directory")"
+  PROJECT_ROOT="$(resolve_path "$PROJECT_ROOT" "Project root")"
 
-# Define file paths
+  if [[ "$TOOL" != "amp" && "$TOOL" != "claude" ]]; then
+    error "--tool must be 'amp' or 'claude'"
+    exit 1
+  fi
+}
+
+validate_inputs
+
 PRD_FILE="$PRD_DIR/prd.json"
 PROGRESS_FILE="$PRD_DIR/progress.md"
 ARCHIVE_DIR="$PRD_DIR/archive"
 LAST_BRANCH_FILE="$PRD_DIR/.last-branch"
 
-# Validate PRD file exists
 if [[ ! -f "$PRD_FILE" ]]; then
-  echo -e "${RED}Error: prd.json not found at $PRD_FILE${NC}"
+  error "prd.json not found at $PRD_FILE"
   exit 1
 fi
 
-# Get branch name from PRD
-BRANCH_NAME=$(jq -r '.branchName // empty' "$PRD_FILE" 2>/dev/null || echo "")
-if [[ -z "$BRANCH_NAME" ]]; then
-  # Generate branch name from PRD directory name
-  FEATURE_NAME=$(basename "$PRD_DIR")
-  BRANCH_NAME="ralph/$FEATURE_NAME"
-fi
+BRANCH_NAME=$(jq -r '.branchName // empty' "$PRD_FILE" 2>/dev/null || true)
+BRANCH_NAME="${BRANCH_NAME:-ralph/$(basename "$PRD_DIR")}"
 
-# Print header and config
-print_header
+print_banner "$BLUE" "Ralph - Autonomous PRD Agent"
 
-# Archive previous run if branch changed
-if [[ -f "$LAST_BRANCH_FILE" ]]; then
-  LAST_BRANCH=$(cat "$LAST_BRANCH_FILE" 2>/dev/null || echo "")
-  if [[ -n "$LAST_BRANCH" && "$BRANCH_NAME" != "$LAST_BRANCH" ]]; then
-    echo -e "${YELLOW}Branch changed from $LAST_BRANCH to $BRANCH_NAME${NC}"
-    echo -e "${YELLOW}Archiving previous progress...${NC}"
-    FOLDER_NAME=$(echo "$LAST_BRANCH" | sed 's|^ralph/||')
-    ARCHIVE_FOLDER="$ARCHIVE_DIR/$(date +%Y-%m-%d)-$FOLDER_NAME"
-    mkdir -p "$ARCHIVE_FOLDER"
-    [[ -f "$PRD_FILE" ]] && cp "$PRD_FILE" "$ARCHIVE_FOLDER/"
-    [[ -f "$PROGRESS_FILE" ]] && cp "$PROGRESS_FILE" "$ARCHIVE_FOLDER/"
-  fi
-fi
+archive_previous_run() {
+  [[ ! -f "$LAST_BRANCH_FILE" ]] && return
 
-# Track current branch
+  local last_branch
+  last_branch=$(cat "$LAST_BRANCH_FILE" 2>/dev/null || true)
+  [[ -z "$last_branch" || "$BRANCH_NAME" == "$last_branch" ]] && return
+
+  info "Branch changed from $last_branch to $BRANCH_NAME"
+  info "Archiving previous progress..."
+
+  local folder_name="${last_branch#ralph/}"
+  local archive_folder="$ARCHIVE_DIR/$(date +%Y-%m-%d)-$folder_name"
+  mkdir -p "$archive_folder"
+  [[ -f "$PRD_FILE" ]] && cp "$PRD_FILE" "$archive_folder/"
+  [[ -f "$PROGRESS_FILE" ]] && cp "$PROGRESS_FILE" "$archive_folder/"
+}
+
+archive_previous_run
 echo "$BRANCH_NAME" > "$LAST_BRANCH_FILE"
 
-# Initialize or update progress file
-if [[ ! -f "$PROGRESS_FILE" ]] || [[ ! -s "$PROGRESS_FILE" ]]; then
-  echo -e "${YELLOW}Initializing progress.md...${NC}"
+if [[ ! -f "$PROGRESS_FILE" || ! -s "$PROGRESS_FILE" ]]; then
+  info "Initializing progress.md..."
   cat > "$PROGRESS_FILE" << EOF
 # Ralph Progress Log
 
@@ -160,73 +163,73 @@ if [[ ! -f "$PROGRESS_FILE" ]] || [[ ! -s "$PROGRESS_FILE" ]]; then
 EOF
 fi
 
-# Print configuration
 print_config
 
-# Ensure we're on the correct branch
-cd "$PROJECT_ROOT"
-CURRENT_GIT_BRANCH=$(git branch --show-current 2>/dev/null || echo "")
+ensure_branch() {
+  cd "$PROJECT_ROOT"
+  local current_branch
+  current_branch=$(git branch --show-current 2>/dev/null || true)
+  [[ "$current_branch" == "$BRANCH_NAME" ]] && return
 
-if [[ "$CURRENT_GIT_BRANCH" != "$BRANCH_NAME" ]]; then
-  echo -e "${YELLOW}Switching to branch: $BRANCH_NAME${NC}"
-
-  # Check if branch exists
+  info "Switching to branch: $BRANCH_NAME"
   if git show-ref --verify --quiet "refs/heads/$BRANCH_NAME" 2>/dev/null; then
     git checkout "$BRANCH_NAME"
   else
-    echo -e "${YELLOW}Creating new branch: $BRANCH_NAME${NC}"
+    info "Creating new branch: $BRANCH_NAME"
     git checkout -b "$BRANCH_NAME"
   fi
-  echo ""
-fi
+  echo
+}
 
-echo -e "${GREEN}Starting autonomous execution...${NC}"
-echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo ""
-
-# Main loop
-for i in $(seq 1 $MAX_ITERATIONS); do
-  echo -e "${BLUE}=== Iteration $i/$MAX_ITERATIONS ===${NC}"
-  echo ""
-
-  # Ensure we're in project root
-  cd "$PROJECT_ROOT"
-
-  # Build prompt with paths injected
-  FULL_PROMPT="PRD_DIR=$PRD_DIR
+build_prompt() {
+  cat <<EOF
+PRD_DIR=$PRD_DIR
 PRD_FILE=$PRD_FILE
 PROGRESS_FILE=$PROGRESS_FILE
 BRANCH_NAME=$BRANCH_NAME
 
-$(cat "$PROMPT_FILE")"
+$(cat "$PROMPT_FILE")
+EOF
+}
 
-  # Execute AI tool
-  # --dangerously-skip-permissions: auto-accept all tool calls
-  # --print: non-interactive mode, output to stdout
+run_iteration() {
+  local iteration=$1
+  echo -e "${BLUE}=== Iteration $iteration/$MAX_ITERATIONS ===${NC}"
+  echo
+
+  cd "$PROJECT_ROOT"
+
+  local output cmd
   if [[ "$TOOL" == "amp" ]]; then
-    OUTPUT=$(echo "$FULL_PROMPT" | amp --dangerously-allow-all 2>&1 | tee /dev/stderr) || true
+    cmd="amp --dangerously-allow-all"
   else
-    OUTPUT=$(echo "$FULL_PROMPT" | claude --dangerously-skip-permissions --print 2>&1 | tee /dev/stderr) || true
+    cmd="claude --dangerously-skip-permissions --print"
   fi
+  output=$(build_prompt | $cmd 2>&1 | tee /dev/stderr) || true
 
-  # Check for completion
-  if echo "$OUTPUT" | grep -q "<promise>COMPLETE</promise>"; then
-    echo ""
-    echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    echo -e "${GREEN}  ✓ Complete at iteration $i${NC}"
-    echo -e "${GREEN}  Branch: $BRANCH_NAME${NC}"
-    echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+  if echo "$output" | grep -q "<promise>COMPLETE</promise>"; then
+    echo
+    print_banner "$GREEN" "Complete at iteration $iteration" "Branch: $BRANCH_NAME"
     exit 0
   fi
 
-  echo ""
+  echo
   sleep 2
+}
+
+ensure_branch
+
+echo -e "${GREEN}Starting autonomous execution...${NC}"
+echo -e "${BLUE}${BANNER}${NC}"
+echo
+
+for i in $(seq 1 "$MAX_ITERATIONS"); do
+  run_iteration "$i"
 done
 
-echo ""
-echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "${YELLOW}  Reached max iterations ($MAX_ITERATIONS)${NC}"
-echo -e "${YELLOW}  Branch: $BRANCH_NAME${NC}"
-echo -e "${YELLOW}  Check progress.md for status${NC}"
-echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+echo
+print_banner "$YELLOW" \
+  "Reached max iterations ($MAX_ITERATIONS)" \
+  "Branch: $BRANCH_NAME" \
+  "Check progress.md for status"
 exit 1

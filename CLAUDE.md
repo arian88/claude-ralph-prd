@@ -75,8 +75,8 @@ ralph.sh --prd ./apps/myapp/docs/prd/feature --root ./apps/myapp
 ## Debugging Commands
 
 ```bash
-# Check story status
-cat ./docs/prd/feature/prd.json | jq '.userStories[] | {id, title, passes}'
+# Check story status (with commit tracking)
+cat ./docs/prd/feature/prd.json | jq '.userStories[] | {id, title, passes, commit, preCommit}'
 
 # View progress and learnings
 cat ./docs/prd/feature/progress.md
@@ -135,14 +135,21 @@ Working directory = project root.
 
 ## Task Per Iteration
 
-1. Read `PRD_FILE`
-2. Read `PROGRESS_FILE` (Codebase Patterns section first)
-3. Pick highest priority story with `passes: false`
-4. Implement it
-5. Run quality checks
-6. Commit: `feat: [Story ID] - [Title]`
-7. Update PRD: set `passes: true`
-8. Append to progress.md
+1. Read `PRD_FILE` and `PROGRESS_FILE` (Codebase Patterns section first)
+2. Pick highest priority story with `passes: false` (check `dependencies` are met)
+3. Run `git status` to capture pre-implementation state
+4. Implement it (track every file modified)
+5. Run quality checks (typecheck, lint, tests)
+6. Run pre-commit tools if available (`code-simplifier`, then `code-review`)
+7. Commit with detailed message (see prompt.md for format)
+8. Update PRD: set `passes: true`, `commit: <hash>`, `preCommit: [tools used]`
+9. Append detailed log to progress.md
+
+### Commit Requirements
+- Stage only files modified for THIS story (no `git add -A`)
+- Use detailed commit format with: PRD context, acceptance criteria, files changed, decisions, validation
+- Print confirmation block after successful commit
+- Only set `passes: true` if commit was successful
 
 ## Decision Framework
 
