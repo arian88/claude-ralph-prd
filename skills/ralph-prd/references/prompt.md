@@ -44,6 +44,21 @@ Execute ONE user story per iteration following this EXACT workflow:
 - Skip stories whose dependencies are not yet complete
 - Note the Story ID (e.g., US-001) and Title
 
+**Print story selection (for monitoring):**
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+▶ STARTING: [STORY-ID] - [Title]
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Priority:     [N]
+  Dependencies: [DEP-ID] ✓, [DEP-ID] ✓ (or "None")
+
+  Acceptance Criteria:
+    • [Criterion 1]
+    • [Criterion 2]
+    • Typecheck passes
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```
+
 ### Step 3: Pre-Implementation Check
 Run `git status` to see current state. Note any existing changes.
 
@@ -57,6 +72,14 @@ Run applicable checks before committing:
 - Typecheck (e.g., `npm run typecheck`, `tsc --noEmit`)
 - Lint (e.g., `npm run lint`)
 - Tests (e.g., `npm test`)
+
+**Print quality check results:**
+```
+QUALITY CHECKS
+  ✓ Typecheck: passed
+  ✓ Lint: passed (or "⚠ N warnings")
+  ✓ Tests: passed (or "N/A - no tests for this change")
+```
 
 Do NOT proceed to commit if checks fail. Fix issues first.
 
@@ -104,6 +127,17 @@ When these tools provide feedback:
 4. **Document significant changes in commit message**
 
 Do NOT ignore feedback. The purpose of these tools is to improve code quality.
+
+**Print pre-commit tool results:**
+```
+PRE-COMMIT TOOLS
+  ✓ code-simplifier: [N] refinements applied
+    - [Specific change 1]
+    - [Specific change 2]
+  ✓ code-review: Passed ([N] issues)
+    - [Issue found/fixed, if any]
+```
+(or "⊘ code-simplifier: Not available" if tool not found)
 
 ### Step 6: Commit (CRITICAL)
 
@@ -160,54 +194,6 @@ EOF
 git log -1 --oneline
 ```
 
-#### 6d. Print confirmation (REQUIRED):
-After successful commit, output this detailed block for user validation:
-```
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-✓ COMMITTED: [STORY-ID] - [Title]
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-Commit Details:
-  Hash:    [full-commit-hash]
-  Branch:  [branch-name]
-  Subject: feat(STORY-ID): [title]
-
-PRD Context:
-  Feature: [PRD description]
-  Story:   [Story description]
-
-Implementation:
-  - [Brief summary of what was implemented]
-  - [Key changes made]
-
-Files Changed:
-  - path/to/file1.ts
-  - path/to/file2.ts
-  - path/to/file3.ts
-
-Pre-Commit Tools:
-  ✓ code-simplifier: applied (or "not available")
-  ✓ code-review: passed (or "not available")
-
-Acceptance Criteria:
-  ✓ [Criterion 1]
-  ✓ [Criterion 2]
-  ✓ Typecheck passes
-
-Quality Checks:
-  ✓ Typecheck: passed
-  ✓ Lint: passed
-  ✓ Tests: passed
-
-Decisions Made:
-  - [Key decision 1]: [Brief justification]
-
-Future Considerations:
-  - [Any notes for future work]
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-```
-
 ### Step 7: Update PRD
 Edit `PRD_FILE` to update the completed story:
 1. Set `passes: true`
@@ -222,53 +208,163 @@ git add "$PRD_FILE"
 git commit -m "chore(STORY-ID): mark story as complete"
 ```
 
+### Step 7.5: Push to Remote (REQUIRED)
+
+**Push both commits to the remote branch immediately after committing.**
+
+```bash
+git push origin "$BRANCH_NAME"
+```
+
+**Note:** First push to a new branch will create the remote branch automatically.
+
+**If push fails:**
+1. Note the error (will be shown in confirmation block)
+2. **Continue to next story** (don't block the workflow)
+3. Commits remain local and can be pushed manually or on next iteration
+4. Next iteration's push will include all unpushed commits
+
+**Why push immediately:**
+- Work is backed up to remote (no lost progress if machine crashes)
+- Team can see progress in real-time on GitHub
+- PR is continuously updated with new commits
+- CI/CD can run on each push for early feedback
+
+### Step 7.6: Print Confirmation Block (REQUIRED)
+
+**After ALL steps are complete (commit, PRD update, push), print this block for user validation:**
+
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✓ STORY COMPLETE: [STORY-ID] - [Title]
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+COMMITS
+  Feature:    [short-hash] feat(STORY-ID): [title]
+  PRD Update: [short-hash] chore(STORY-ID): mark story as complete
+  Branch:     [branch-name]
+
+FILES CHANGED ([N] files)
+  + path/to/new-file.ts            [new]
+  ~ path/to/modified-file.ts       [modified]
+  - path/to/deleted-file.ts        [deleted]
+
+PRE-COMMIT TOOLS
+  ✓ code-simplifier: [N] refinements applied
+    - [Specific improvement 1]
+    - [Specific improvement 2]
+  ✓ code-review: [Passed/Fixed N issues]
+    - [Issue fixed, if any]
+  (or "⊘ Not available" if tools were not found)
+
+ACCEPTANCE CRITERIA
+  ✓ [Criterion 1 - be specific]
+  ✓ [Criterion 2 - be specific]
+  ✓ Typecheck passes
+
+QUALITY CHECKS
+  ✓ Typecheck   ✓ Lint   ✓ Tests
+
+DECISIONS
+  • [Decision 1]: [Brief justification]
+  • [Decision 2]: [Brief justification]
+
+PUSHED TO REMOTE
+  ✓ 2 commits pushed to origin/[branch-name]
+  (or "✗ Push failed: [error] - commits saved locally")
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PROGRESS: [████████░░░░░░░░░░░░] [completed]/[total] stories ([percentage]%)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+NEXT UP: [NEXT-STORY-ID] - [Next Story Title]
+  Dependencies: [DEP-ID] ✓, [DEP-ID] ✓ (or "None")
+  Priority: [N]
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```
+
+**Progress bar calculation:**
+- Count stories with `passes: true` as completed
+- Total = length of userStories array
+- Percentage = (completed / total) * 100
+- Bar: Use █ for filled, ░ for empty (20 characters total)
+
+**File change indicators:**
+- `+` = new file created
+- `~` = existing file modified
+- `-` = file deleted
+
 ### Step 8: Log Progress
 Append to `PROGRESS_FILE`:
 
 ```markdown
-## [Date] - [STORY-ID]: [Title]
+---
 
-**Status:** ✓ Committed
+## [STORY-ID]: [Title]
+**Date:** [YYYY-MM-DD HH:MM]
+**Status:** ✓ Complete
 
-**Commit Info:**
-- Hash: `[full-commit-hash]`
-- Branch: `[branch-name]`
-- Subject: `feat(STORY-ID): [title]`
+### Commits
+| Type | Hash | Message |
+|------|------|---------|
+| Feature | `[full-hash]` | feat(STORY-ID): [title] |
+| PRD Update | `[full-hash]` | chore(STORY-ID): mark story as complete |
 
-**PRD Context:**
-- Feature: [PRD description]
-- Story: [Story description]
+**Branch:** `[branch-name]`
+**Pushed:** ✓ Yes (or "✗ Failed: [error]")
 
-**Implementation Summary:**
-- [What was built/changed - bullet points]
+### Files Changed
+| File | Change | Description |
+|------|--------|-------------|
+| `path/to/file1.ts` | + new | [What was added] |
+| `path/to/file2.ts` | ~ modified | [What was changed] |
+| `path/to/file3.ts` | - deleted | [Why removed] |
 
-**Files Changed:**
-- `path/to/file1.ts`: What was added/changed
-- `path/to/file2.ts`: What was added/changed
+### Pre-Commit Tools
 
-**Pre-Commit Tools Used:**
-- [x] code-simplifier: Applied refinements to [files]
-- [x] code-review: Passed with no issues (or "Fixed N issues")
-- [ ] Not available (if tools were not available)
+**code-simplifier:** ✓ Applied ([N] refinements)
+- [Specific improvement 1]
+- [Specific improvement 2]
 
-**Acceptance Criteria Verified:**
-- [x] Criterion 1
-- [x] Criterion 2
+**code-review:** ✓ Passed ([N] issues found/fixed)
+- [Issue description and fix, if any]
+
+*(or "⊘ Not available" if tools were not found)*
+
+### Acceptance Criteria
+- [x] [Criterion 1 - specific description]
+- [x] [Criterion 2 - specific description]
 - [x] Typecheck passes
 
-**Decisions Made:**
-- Chose X over Y because [reason]
-
-**Quality Checks:**
+### Quality Checks
 - [x] Typecheck: passed
 - [x] Lint: passed
 - [x] Tests: passed/N/A
 
-**Future Considerations:**
-- [Any notes for future stories or improvements]
+### Decisions Made
+| Decision | Justification |
+|----------|---------------|
+| [What was decided] | [Why this approach was chosen] |
+| [Another decision] | [Reasoning] |
+
+### Notes for Future Stories
+- [Consideration for dependent stories]
+- [Technical debt to address later]
+- [Patterns discovered for reuse]
+
+### Progress Snapshot
+- **Completed:** [N]/[total] stories ([percentage]%)
+- **Next:** [NEXT-ID] - [Next Title]
+- **Blockers:** None (or describe any)
 
 ---
 ```
+
+**IMPORTANT:** The progress.md serves as the memory between iterations. Include enough detail that the next iteration can understand:
+1. What was done and why
+2. What patterns were discovered
+3. What to watch out for
 
 ### Step 9: Check Completion
 - If ALL stories have `passes: true`, output: `<promise>COMPLETE</promise>`
@@ -314,8 +410,30 @@ If `git commit` fails:
 - ONE story per iteration
 - NO questions - be decisive
 - MUST COMMIT after each story (this is not optional)
-- MUST print commit confirmation block
-- MUST UPDATE prd.json after each story
+- MUST PUSH after each story (backup to remote immediately)
+- MUST UPDATE prd.json after each story (passes, commit, preCommit)
 - MUST LOG to progress.md after each story
 - Working directory = project root, NOT PRD directory
 - Stage ONLY files you changed for THIS story
+
+## Console Output Requirements
+
+**Print status at each phase for user monitoring:**
+1. **Step 2:** Print "▶ STARTING" block with story details and acceptance criteria
+2. **Step 5:** Print "QUALITY CHECKS" results (typecheck, lint, tests)
+3. **Step 5.5:** Print "PRE-COMMIT TOOLS" results with specific improvements
+4. **Step 7.6:** Print full "✓ STORY COMPLETE" block with:
+   - Commit hashes (both feature and PRD update)
+   - Files changed with +/~/- indicators
+   - Pre-commit tool details (what was improved/found)
+   - Acceptance criteria verification
+   - Push status (success or failure with error)
+   - Progress bar and percentage
+   - Next story preview with dependencies
+
+**Why this matters:** Users monitor Ralph in real-time. Clear, structured output helps them:
+- Validate that work is being done correctly
+- Understand decisions being made
+- Track progress toward completion
+- Identify issues early
+- Confirm commits are pushed to remote
