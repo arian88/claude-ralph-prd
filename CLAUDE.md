@@ -107,9 +107,9 @@ git diff main..ralph/feature-name
 - **Memory via files**: Git history, progress.md, and prd.json persist knowledge
 - **Small tasks**: Each story should complete in one context window
 - **Autonomous decisions**: Agent makes choices based on PRD, documents them
-- **Two-pass quality review**: Every story runs code-simplifier AND code-review before committing
+- **Tiered quality review**: Every story runs mandatory passes (code-simplifier, code-review) plus story-type-specific passes
 - **Runtime validation**: Stories with `validationScenario` run browser/API tests before commit
-- **Available skills**: frontend-design skill for UI work, Context7 for docs, Playwright for browser
+- **Available skills**: See Skill Applicability Matrix below for full list
 - **Stop condition**: `<promise>COMPLETE</promise>` when all stories pass
 
 ---
@@ -145,13 +145,13 @@ Working directory = project root.
 3. Run `git status` to capture pre-implementation state
 4. Implement it (track every file modified)
 5. Run quality checks (typecheck, lint, tests)
-6. **⛔ MANDATORY: Run Quality Review Phase (2 passes)**
-   - Pass 1: code-simplifier (simplify code)
-   - Pass 2: code-review (find bugs)
+6. **⛔ MANDATORY: Run Quality Review Phase (tiered)**
+   - Tier 1: code-simplifier, code-review (ALL stories)
+   - Tier 2: vercel-react-best-practices, web-design-guidelines (frontend)
 7. **Run Runtime Validation** (if story has `validationScenario` in PRD)
    - Start dev server, launch browser, execute validation steps
    - Check console for errors, verify success criteria
-8. Update prd.json: `passes: true`, `preCommit: ["code-simplifier", "code-review"]`
+8. Update prd.json: `passes: true`, `preCommit: [all mandatory passes for story type]`
 9. Append detailed log to progress.md
 10. **Single Commit (feat):** Stage implementation + prd.json + progress.md together
 11. **Push to remote** (backup immediately, first push creates remote branch)
@@ -159,88 +159,87 @@ Working directory = project root.
 
 **Result: 1 commit per story (feat with everything)**
 
-**⛔ NEVER set passes: true if preCommit doesn't contain BOTH tools. Both passes MUST be run.**
+**⛔ NEVER set passes: true if mandatory passes for story type are missing.**
 **⛔ NEVER commit if runtime validation fails (when validationScenario exists).**
 
 ---
 
-## Quality Review Phase (MANDATORY - 2 PASSES)
+## Quality Review Phase (MANDATORY - TIERED SYSTEM)
 
-**Both passes are MANDATORY before every commit.**
+**Execute passes based on story type analysis.**
 
 ```
-┌──────────────────────────────────────────────────────────────┐
-│                 QUALITY REVIEW PHASE                         │
-│                                                              │
-│  Pass 1: code-simplifier  →  Apply Changes  →  Quality Check │
-│                            ↓                                 │
-│  Pass 2: code-review      →  Fix Issues     →  Quality Check │
-│                            ↓                                 │
-│  Validation Gate          →  Ready to Commit                 │
-└──────────────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────────────────┐
+│              QUALITY REVIEW PHASE (TIERED SYSTEM)                      │
+│                                                                        │
+│  TIER 1 - MANDATORY (All Stories)                                      │
+│  ├─ Pass 1: code-simplifier                                            │
+│  └─ Pass 2: code-review                                                │
+│                                                                        │
+│  TIER 2 - CONDITIONAL MANDATORY (Based on Story Type)                  │
+│  ├─ Pass 3: vercel-react-best-practices (React/Next.js only)           │
+│  └─ Pass 4: web-design-guidelines (all frontend)                       │
+│                                                                        │
+│  TIER 3 - RECOMMENDED (Agent-Decided)                                  │
+│  └─ Pass 5: rams (visual polish - can skip with documented reason)     │
+│                                                                        │
+│  IMPLEMENTATION SKILL (During Step 4)                                  │
+│  └─ frontend-design (for new UI components)                            │
+│                                                                        │
+│  VALIDATION GATE → Ready to Commit                                     │
+└────────────────────────────────────────────────────────────────────────┘
 ```
 
----
+### Skill Applicability Matrix
 
-### Pass 1: Code Simplification
+| Skill | Backend | Config | Frontend (React) | Frontend (Other) |
+|-------|---------|--------|------------------|------------------|
+| code-simplifier | MANDATORY | MANDATORY | MANDATORY | MANDATORY |
+| code-review | MANDATORY | MANDATORY | MANDATORY | MANDATORY |
+| vercel-react-best-practices | UNUSED | UNUSED | **MANDATORY** | UNUSED |
+| web-design-guidelines | UNUSED | UNUSED | **MANDATORY** | **MANDATORY** |
+| frontend-design | UNUSED | UNUSED | Agent-Decided | Agent-Decided |
+| rams | UNUSED | UNUSED | Agent-Decided | Agent-Decided |
+| agent-browser | UNUSED | UNUSED | MANDATORY* | MANDATORY* |
 
-Spawn the `code-simplifier:code-simplifier` agent with fresh context.
+*When validationScenario exists
 
-**Invoke via Task tool:**
-```json
-{
-  "subagent_type": "code-simplifier:code-simplifier",
-  "prompt": "Simplify and refine these files for clarity and maintainability while preserving functionality:\n- /absolute/path/to/file1.ts\n- /absolute/path/to/file2.ts",
-  "description": "Simplify modified files"
-}
-```
+### Skill Invocations
 
-**What it does:**
-- Simplifies code for clarity and maintainability
-- Preserves exact functionality
-- Applies project coding standards
-- Improves naming, reduces complexity
+**Tier 1 (Mandatory):**
+- `code-simplifier:code-simplifier` via Task tool
+- `general-purpose` via Task tool (for code-review)
 
-**After running:**
-1. Apply ALL suggested improvements
-2. Re-run quality checks if code changed
+**Tier 2 (Conditional):**
+- `/vercel-react-best-practices` - React/Next.js optimization
+- `/web-design-guidelines` - Accessibility and UX review
 
----
+**Tier 3 (Recommended):**
+- `/rams` - Visual polish and accessibility fixes
 
-### Pass 2: Code Review
+**Implementation:**
+- `/frontend-design` or `frontend-design:frontend-design` via Task tool
 
-Spawn a `general-purpose` agent with fresh context to review for bugs.
-
-**Invoke via Task tool:**
-```json
-{
-  "subagent_type": "general-purpose",
-  "prompt": "You are a senior code reviewer. Review the following modified files for bugs and issues.\n\n## Review Focus\n1. **Bugs**: Logic errors, null handling, race conditions\n2. **Security**: Input validation, injection vulnerabilities\n3. **Edge Cases**: Error handling, boundary conditions\n4. **Correctness**: Does code do what it should?\n\n## Output Format\nFor each issue:\n- File: /path/to/file.ts\n- Line: 42\n- Severity: HIGH | MEDIUM | LOW\n- Description: What is wrong\n- Suggested Fix: How to fix\n\n## Rules\n- Only report >80% confidence issues\n- Do NOT report style issues (handled by code-simplifier)\n- If no issues: respond 'No issues found.'\n\n## Files to Review\n- /absolute/path/to/file1.ts\n- /absolute/path/to/file2.ts",
-  "description": "Review modified files for bugs and issues"
-}
-```
-
-**What it does:**
-- Reviews code with fresh context (no implementation bias)
-- Finds bugs, security issues, edge cases
-- Provides severity ratings (HIGH/MEDIUM/LOW)
-
-**After running:**
-1. Fix ALL HIGH severity issues
-2. Fix MEDIUM issues if reasonable
-3. Re-run quality checks if code changed
-
----
+**Validation:**
+- `/agent-browser` (PRIMARY) - Natural language browser automation
+- Playwright MCP tools (FALLBACK) - If agent-browser unavailable
 
 ### Validation Gate
 
-Before committing, verify:
-- ✓ Pass 1 (code-simplifier) executed
-- ✓ Pass 2 (code-review) executed
-- ✓ All HIGH severity issues fixed
-- ✓ Quality checks pass
+Before committing, verify ALL mandatory passes for story type:
 
-**preCommit must contain:** `["code-simplifier", "code-review"]`
+**For ALL stories:**
+- ✓ code-simplifier executed
+- ✓ code-review executed
+
+**For frontend-react, ALSO:**
+- ✓ vercel-react-best-practices executed
+- ✓ web-design-guidelines executed
+
+**For frontend-other, ALSO:**
+- ✓ web-design-guidelines executed
+
+**preCommit must contain all executed passes.**
 
 ---
 

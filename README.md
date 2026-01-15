@@ -23,6 +23,74 @@ Ralph PRD is a Claude Code plugin that enables autonomous feature development th
 - bash shell
 - jq (for debugging): `brew install jq` (macOS) or `apt install jq` (Linux)
 
+## Recommended Skills (Optional)
+
+Ralph can leverage additional skills for enhanced code quality and validation. These are not required but will be automatically used when available.
+
+### Built-in Quality Passes (Always Mandatory)
+
+These two passes run on EVERY commit, regardless of story type:
+
+| Pass | What it does |
+|------|--------------|
+| **code-simplifier** | Simplifies code for clarity and maintainability while preserving functionality |
+| **code-review** | Reviews code with fresh context to catch bugs, security issues, and edge cases |
+
+> **Note:** These are built-in and do not require installation. The `preCommit` field must always contain both `["code-simplifier", "code-review"]` at minimum.
+
+### Optional Quality Review Skills
+
+| Skill | What it does | When Ralph uses it |
+|-------|--------------|-------------------|
+| **vercel-react-best-practices** | React/Next.js optimization guidelines from Vercel Engineering | Mandatory for React/Next.js stories. Reviews components for performance patterns, memoization, code splitting. |
+| **web-design-guidelines** | Accessibility, keyboard support, forms, animation, and performance review | Mandatory for all frontend stories. Ensures WCAG compliance and UX best practices. |
+| **rams** | Design engineer for visual polish and accessibility audits | Agent decides per story. Used for UI polish, color contrast, spacing consistency. |
+| **frontend-design** | Creates distinctive, production-grade UI (avoids generic AI aesthetics) | Agent decides per story. Used when creating new components or pages. |
+
+### Validation Tools
+
+| Tool | What it does | When Ralph uses it |
+|------|--------------|-------------------|
+| **agent-browser** | Fast, natural language browser automation | Primary validation tool for frontend stories. Verifies UI renders correctly, checks for console errors. |
+
+### Installation Commands
+
+```bash
+# vercel-react-best-practices (React/Next.js optimization)
+# https://vercel.com/blog/introducing-react-best-practices
+npx add-skill vercel-labs/agent-skills
+
+# web-design-guidelines (accessibility and UX review)
+# https://vercel.com/changelog/web-interface-guidelines-now-available-as-an-agent-command
+curl -fsSL https://vercel.com/design/guidelines/install | bash
+
+# agent-browser (browser automation for validation)
+# https://github.com/vercel-labs/agent-browser
+npm install -g agent-browser && agent-browser install
+
+# rams (visual polish and accessibility)
+# https://www.rams.ai
+curl -fsSL https://rams.ai/install | bash
+
+# frontend-design (production-grade UI creation)
+# https://github.com/anthropics/claude-code/blob/main/plugins/frontend-design/skills/frontend-design/SKILL.md
+/plugin marketplace add anthropics/claude-code
+/plugin install frontend-design@claude-code-plugins
+```
+
+### Skill Usage by Story Type
+
+Ralph automatically determines which optional skills to use based on story type. The built-in passes (code-simplifier, code-review) always run.
+
+| Story Type | Additional Mandatory Skills | Agent-Decided Skills |
+|------------|----------------------------|----------------------|
+| Frontend (React) | vercel-react-best-practices, web-design-guidelines | frontend-design, rams |
+| Frontend (Other) | web-design-guidelines | frontend-design, rams |
+| Backend | None | None |
+| Config | None | None |
+
+> **Note:** If an optional skill is not installed, Ralph will skip it and continue. The `preCommit` field in prd.json tracks which skills were actually executed for each story. It must always contain at minimum `["code-simplifier", "code-review"]`.
+
 ## Installation
 
 ### Plugin Installation (Recommended)

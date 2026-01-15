@@ -59,13 +59,127 @@ Execute ONE user story per iteration following this EXACT workflow:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
+### Step 2.5: Story Analysis (SKILL DETERMINATION)
+
+**BEFORE implementation, analyze the story to determine which skills apply.**
+
+This analysis determines which quality review passes are MANDATORY, RECOMMENDED, or UNUSED for this specific story.
+
+#### 2.5.1: Detect Story Type
+
+Analyze the story's acceptance criteria and expected file changes to determine story type:
+
+| Story Type | Detection Criteria |
+|------------|-------------------|
+| **frontend-react** | Story involves React/Next.js components (`*.tsx`, `*.jsx`, `pages/`, `app/`, `components/`) AND project has React/Next.js (check package.json) |
+| **frontend-other** | Story involves frontend files (`*.html`, `*.vue`, `*.svelte`, `*.css`, `*.scss`) but NOT React/Next.js |
+| **backend** | Story involves API, server, services, database (`api/`, `server/`, `services/`, `*.service.ts`) |
+| **config** | Story involves only config/build files (`*.json`, `*.yaml`, `Dockerfile`, `*.sh`) |
+
+#### 2.5.2: Determine Skill Applicability
+
+Based on story type, determine the status of each skill:
+
+**FIXED RULES (Always Apply):**
+
+| Skill | Backend | Config | Frontend (React) | Frontend (Other) |
+|-------|---------|--------|------------------|------------------|
+| code-simplifier | MANDATORY | MANDATORY | MANDATORY | MANDATORY |
+| code-review | MANDATORY | MANDATORY | MANDATORY | MANDATORY |
+| vercel-react-best-practices | UNUSED | UNUSED | **MANDATORY** | UNUSED |
+| web-design-guidelines | UNUSED | UNUSED | **MANDATORY** | **MANDATORY** |
+
+**AGENT-DECIDED SKILLS (Analyze per story):**
+
+| Skill | Decision Criteria |
+|-------|-------------------|
+| **frontend-design** | MANDATORY: Story creates new page/complex component/visual redesign. RECOMMENDED: Story modifies existing UI with visual changes. UNUSED: Logic-only, backend, or config changes. |
+| **rams** | MANDATORY: Story creates new visible UI elements (buttons, cards, forms). RECOMMENDED: Story modifies existing visible UI. UNUSED: No visual impact. |
+| **agent-browser** | MANDATORY: Story has `validationScenario` with `type: "frontend"` or `type: "api"`. UNUSED: No validationScenario or `type: "none"`. |
+
+#### 2.5.3: Print Story Analysis
+
+**Print skill determination (for monitoring and commit tracking):**
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+▶ STORY ANALYSIS: [STORY-ID] - [Title]
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Story Type: [frontend-react / frontend-other / backend / config]
+
+  SKILL DETERMINATION:
+  ┌─────────────────────────────────┬────────────┬─────────────────────────┐
+  │ Skill                           │ Status     │ Reason                  │
+  ├─────────────────────────────────┼────────────┼─────────────────────────┤
+  │ code-simplifier                 │ MANDATORY  │ All stories             │
+  │ code-review                     │ MANDATORY  │ All stories             │
+  │ vercel-react-best-practices     │ [STATUS]   │ [Reason]                │
+  │ web-design-guidelines           │ [STATUS]   │ [Reason]                │
+  │ frontend-design                 │ [STATUS]   │ [Reason]                │
+  │ rams                            │ [STATUS]   │ [Reason]                │
+  │ agent-browser                   │ [STATUS]   │ [Reason]                │
+  └─────────────────────────────────┴────────────┴─────────────────────────┘
+
+  Validation Tool: agent-browser (primary), Playwright (fallback)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```
+
+**Store this determination** - you will need it for the Quality Review Phase and commit message.
+
+---
+
 ### Step 3: Pre-Implementation Check
 Run `git status` to see current state. Note any existing changes.
 
 ### Step 4: Implement
+
 - Write the code to satisfy the acceptance criteria
 - **TRACK EVERY FILE YOU MODIFY** - you will need this list for the commit
 - Keep changes minimal and focused on THIS story only
+
+#### 4.1: Frontend-Design Skill (For UI Components)
+
+**If Step 2.5 determined `frontend-design` as MANDATORY or RECOMMENDED**, use this skill during implementation.
+
+**When to use:**
+- Creating new pages or complex UI components
+- Significant visual redesign
+- Stories with UX-focused acceptance criteria
+
+**Invoke the Skill tool:**
+```
+/frontend-design Create [component description]. Requirements: [list from acceptance criteria]
+```
+
+Or via Task tool:
+```json
+{
+  "subagent_type": "frontend-design:frontend-design",
+  "prompt": "Create [UI component]. Requirements:\n- [Requirement 1 from acceptance criteria]\n- [Requirement 2]\n\nFiles to create/modify:\n- [expected file paths]",
+  "description": "Design [component name]"
+}
+```
+
+**What it does:**
+- Creates distinctive, production-grade frontend interfaces
+- Avoids generic "AI slop" aesthetics
+- Implements real working code with attention to aesthetic details
+- Makes creative design choices that elevate the UI
+
+**After using:** Review generated code, integrate into codebase, track files modified.
+
+**Print usage:**
+```
+IMPLEMENTATION - FRONTEND-DESIGN SKILL
+  ✓ Skill invoked for: [Component name]
+  ✓ Generated: [List of files/components created]
+  ✓ Integrated into: [Target location]
+```
+
+**If frontend-design determined UNUSED:**
+```
+IMPLEMENTATION - FRONTEND-DESIGN SKILL
+  ⊘ Not used (Reason: [Backend story / Minor UI tweak / etc.])
+```
 
 ### Step 5: Quality Checks
 Run applicable checks before committing:
@@ -83,31 +197,52 @@ QUALITY CHECKS
 
 Do NOT proceed to commit if checks fail. Fix issues first.
 
-### Step 5.5: Quality Review Phase (MANDATORY - BLOCKING)
+### Step 5.5: Quality Review Phase (MANDATORY - TIERED)
 
-**⛔ You CANNOT proceed to commit until BOTH quality review passes have been executed.**
+**⛔ You CANNOT proceed to commit until ALL MANDATORY passes for your story type have been executed.**
 
-This step is a **hard gate**. A story can ONLY have `passes: true` if `preCommit` contains BOTH `"code-simplifier"` AND `"code-review"`.
+This step is a **hard gate**. Execute passes based on the **Skill Determination** from Step 2.5.
 
 ```
-┌──────────────────────────────────────────────────────────────────────┐
-│                    QUALITY REVIEW PHASE                              │
-│                                                                      │
-│   PASS 1: Code Simplifier  →  Apply Changes  →  Quality Checks       │
-│                              ↓                                       │
-│   PASS 2: Code Review      →  Fix Issues     →  Quality Checks       │
-│                              ↓                                       │
-│   VALIDATION GATE          →  Ready to Commit                        │
-└──────────────────────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────────────────┐
+│              QUALITY REVIEW PHASE (TIERED SYSTEM)                      │
+│                                                                        │
+│  TIER 1 - MANDATORY (All Stories)                                      │
+│  ├─ Pass 1: code-simplifier                                            │
+│  └─ Pass 2: code-review                                                │
+│                                                                        │
+│  TIER 2 - CONDITIONAL MANDATORY (Based on Story Type)                  │
+│  ├─ Pass 3: vercel-react-best-practices (React/Next.js only)           │
+│  └─ Pass 4: web-design-guidelines (all frontend)                       │
+│                                                                        │
+│  TIER 3 - RECOMMENDED (Agent-Decided in Step 2.5)                      │
+│  └─ Pass 5: rams (visual polish - can skip with documented reason)     │
+│                                                                        │
+│  VALIDATION GATE → Ready to Commit                                     │
+└────────────────────────────────────────────────────────────────────────┘
 ```
+
+**Execution Order:**
+1. code-simplifier (general cleanup)
+2. vercel-react-best-practices (if React/Next.js)
+3. web-design-guidelines (if frontend)
+4. code-review (bug detection with fresh context)
+5. rams (final visual polish, if determined MANDATORY or RECOMMENDED)
 
 ---
 
-#### PASS 1: Code Simplification (run FIRST)
+#### TIER 1 - MANDATORY (All Stories)
 
-Spawn the code-simplifier agent with fresh context to review your implementation.
+##### Pass 1: Code Simplification
 
-**Invoke the Task tool:**
+Spawn the code-simplifier agent with fresh context.
+
+**Invoke the Skill tool:**
+```
+Use Skill tool: code-simplifier:code-simplifier
+```
+
+Or via Task tool:
 ```json
 {
   "subagent_type": "code-simplifier:code-simplifier",
@@ -116,95 +251,176 @@ Spawn the code-simplifier agent with fresh context to review your implementation
 }
 ```
 
-**What code-simplifier does:**
+**What it does:**
 - Simplifies code for clarity and maintainability
-- Preserves exact functionality (never changes what code does)
+- Preserves exact functionality
 - Applies project coding standards
-- Improves naming, reduces complexity, removes redundancy
+- Improves naming, reduces complexity
 
-**After receiving results:**
-1. Apply ALL suggested improvements to your code
-2. Re-run quality checks (typecheck, lint) if code was modified
-3. Track completion: `preCommit` will include `"code-simplifier"`
-
-**Print Pass 1 results:**
-```
-QUALITY REVIEW - PASS 1: CODE SIMPLIFICATION
-  ✓ code-simplifier agent spawned (fresh context)
-  ✓ [N] refinements applied:
-    - [Specific improvement 1]
-    - [Specific improvement 2]
-  ✓ Quality checks re-run: passed
-```
+**After running:** Apply ALL suggested improvements, re-run quality checks.
 
 ---
 
-#### PASS 2: Code Review (run SECOND, after simplification)
+##### Pass 2: Code Review
 
-Spawn a code review agent with fresh context to find bugs and issues in your simplified code.
+Spawn a code review agent with fresh context (run AFTER all other passes to catch any introduced issues).
 
 **Invoke the Task tool:**
 ```json
 {
   "subagent_type": "general-purpose",
-  "prompt": "You are a senior code reviewer. Review the following modified files for bugs and issues.\n\n## Review Focus\n\n1. **Bugs**: Logic errors, off-by-one errors, null/undefined handling, race conditions\n2. **Security**: Input validation, injection vulnerabilities, authentication/authorization issues\n3. **Edge Cases**: Missing error handling, boundary conditions, empty states\n4. **Correctness**: Does the code actually do what it's supposed to do?\n\n## Output Format\n\nFor each issue found, report:\n```\nISSUE:\n  File: /path/to/file.ts\n  Line: 42\n  Severity: HIGH | MEDIUM | LOW\n  Description: What is wrong\n  Suggested Fix: How to fix it\n```\n\n## Rules\n\n- Only report issues you are >80% confident are real problems\n- Do NOT report style/formatting issues (already handled by code-simplifier)\n- Do NOT report issues in code that was not modified\n- Focus on functional correctness and security\n- If no issues found, respond with: 'No issues found.'\n\n## Files to Review\n\n- /full/path/to/file1.ts\n- /full/path/to/file2.ts",
-  "description": "Review modified files for bugs and issues"
+  "prompt": "You are a senior code reviewer. Review the following modified files for bugs and issues.\n\n## Review Focus\n1. **Bugs**: Logic errors, null handling, race conditions\n2. **Security**: Input validation, injection vulnerabilities\n3. **Edge Cases**: Error handling, boundary conditions\n4. **Correctness**: Does code do what it should?\n\n## Output Format\nFor each issue:\n- File: /path/to/file.ts\n- Line: 42\n- Severity: HIGH | MEDIUM | LOW\n- Description: What is wrong\n- Suggested Fix: How to fix\n\n## Rules\n- Only report >80% confidence issues\n- Do NOT report style issues (handled by other passes)\n- If no issues: 'No issues found.'\n\n## Files to Review\n- /full/path/to/file1.ts",
+  "description": "Review modified files for bugs"
 }
 ```
 
-**What the code review agent does:**
-- Reviews code with fresh context (no bias from implementation)
-- Finds bugs, security issues, and edge cases
-- Provides severity ratings (HIGH/MEDIUM/LOW)
-- Suggests fixes for each issue
+**After running:** Fix ALL HIGH severity issues, fix MEDIUM if reasonable.
 
-**After receiving results:**
-1. Fix ALL issues with severity **HIGH** (must fix)
-2. Fix issues with severity **MEDIUM** (should fix if reasonable)
-3. **LOW** severity issues are optional (document if skipped)
-4. Re-run quality checks (typecheck, lint) if code was modified
-5. Track completion: `preCommit` will include `"code-review"`
+---
 
-**Print Pass 2 results:**
+#### TIER 2 - CONDITIONAL MANDATORY (Frontend Stories)
+
+##### Pass 3: Vercel React Best Practices (React/Next.js Only)
+
+**Skip if:** Story type is NOT `frontend-react` (mark as UNUSED in commit).
+
+**Invoke the Skill tool:**
 ```
-QUALITY REVIEW - PASS 2: CODE REVIEW
-  ✓ code-review agent spawned (fresh context)
-  ✓ Review complete:
-    - HIGH: [N] issues found, [N] fixed
-    - MEDIUM: [N] issues found, [N] fixed
-    - LOW: [N] issues found (optional)
+/vercel-react-best-practices
+```
+
+**What it does:**
+- Applies React/Next.js performance optimizations from Vercel Engineering
+- Suggests memoization, lazy loading, bundle optimization
+- Identifies hydration issues, client/server component patterns
+- Recommends data fetching best practices
+
+**After running:** Apply suggested optimizations, re-run quality checks.
+
+**Print results:**
+```
+QUALITY REVIEW - PASS 3: VERCEL REACT BEST PRACTICES
+  ✓ Skill invoked for React/Next.js optimization
+  ✓ [N] optimizations applied:
+    - [Optimization 1: e.g., Added useMemo for expensive calculation]
+    - [Optimization 2: e.g., Converted to Server Component]
   ✓ Quality checks re-run: passed
+```
+
+---
+
+##### Pass 4: Web Design Guidelines (All Frontend)
+
+**Skip if:** Story type is `backend` or `config` (mark as UNUSED in commit).
+
+**Invoke the Skill tool:**
+```
+/web-design-guidelines
+```
+
+**What it does:**
+- Reviews UI code for accessibility (WCAG compliance)
+- Checks keyboard support and focus management
+- Validates form behavior and error states
+- Reviews animation performance and motion preferences
+- Checks responsive design and mobile support
+
+**After running:** Fix ALL accessibility issues, apply UX improvements.
+
+**Print results:**
+```
+QUALITY REVIEW - PASS 4: WEB DESIGN GUIDELINES
+  ✓ Skill invoked for accessibility and UX review
+  ✓ [N] fixes applied:
+    - [Fix 1: e.g., Added aria-label to icon button]
+    - [Fix 2: e.g., Added keyboard focus ring]
+    - [Fix 3: e.g., Improved color contrast ratio]
+  ✓ Quality checks re-run: passed
+```
+
+---
+
+#### TIER 3 - RECOMMENDED (Agent-Decided)
+
+##### Pass 5: Rams Design Review (Visual Polish)
+
+**Execute if:** Determined as MANDATORY or RECOMMENDED in Step 2.5.
+**Skip if:** Determined as UNUSED, or if no visual issues remain after Pass 4.
+
+**Invoke the Skill tool:**
+```
+/rams
+```
+
+**What it does:**
+- Design engineer review for accessibility issues
+- Identifies visual inconsistencies
+- Suggests UI polish improvements
+- Offers to fix identified issues
+
+**After running:** Apply polish improvements or document why skipped.
+
+**Print results:**
+```
+QUALITY REVIEW - PASS 5: RAMS DESIGN REVIEW
+  ✓ Skill invoked for visual polish
+  ✓ [N] polish improvements:
+    - [Improvement 1: e.g., Adjusted shadow depth]
+    - [Improvement 2: e.g., Refined spacing]
+  ✓ Quality checks re-run: passed
+```
+
+Or if skipped:
+```
+QUALITY REVIEW - PASS 5: RAMS DESIGN REVIEW
+  ⊘ SKIPPED (Reason: No visual components in this story)
 ```
 
 ---
 
 #### Validation Gate
 
-Before proceeding to Step 6 (Commit), verify ALL conditions:
+Before proceeding to commit, verify ALL conditions based on story type:
 
-- [ ] **Pass 1 complete**: code-simplifier was executed and improvements applied
-- [ ] **Pass 2 complete**: code-review was executed and HIGH/MEDIUM issues fixed
-- [ ] **Quality checks pass**: typecheck, lint, tests all pass after changes
-- [ ] **preCommit ready**: Will contain `["code-simplifier", "code-review"]`
+**For ALL stories:**
+- [ ] Pass 1 (code-simplifier): executed and improvements applied
+- [ ] Pass 2 (code-review): executed and HIGH/MEDIUM issues fixed
+- [ ] Quality checks pass: typecheck, lint, tests
 
-**If ANY condition is not met:**
-- STOP the iteration
-- Log the error in progress.md
-- Do NOT mark the story as complete
-- Do NOT set passes: true
+**For frontend-react stories, ALSO verify:**
+- [ ] Pass 3 (vercel-react-best-practices): executed
+- [ ] Pass 4 (web-design-guidelines): executed
+- [ ] Pass 5 (rams): executed OR documented reason for skip
+
+**For frontend-other stories, ALSO verify:**
+- [ ] Pass 4 (web-design-guidelines): executed
+- [ ] Pass 5 (rams): executed OR documented reason for skip
+
+**preCommit must contain all executed passes.**
 
 **Print Validation Gate results:**
 ```
 QUALITY REVIEW - VALIDATION GATE
-  ✓ Pass 1 (code-simplifier): complete
-  ✓ Pass 2 (code-review): complete
-  ✓ All HIGH severity issues: fixed
+  Story Type: [frontend-react / frontend-other / backend / config]
+
+  TIER 1 (Mandatory):
+    ✓ code-simplifier: complete
+    ✓ code-review: complete
+
+  TIER 2 (Conditional):
+    ✓ vercel-react-best-practices: complete / UNUSED (not React)
+    ✓ web-design-guidelines: complete / UNUSED (backend story)
+
+  TIER 3 (Recommended):
+    ✓ rams: complete / SKIPPED (reason: [reason])
+
+  ✓ All mandatory passes for story type: COMPLETE
   ✓ Quality checks: passed
 
   VALIDATED: ✓ Ready to commit
 ```
 
-**⛔ STOP HERE if either pass failed or was not executed. Do NOT proceed to commit.**
+**⛔ STOP HERE if any mandatory pass for your story type failed. Do NOT proceed to commit.**
 
 ### Step 5.7: Runtime Validation (REQUIRED if validationScenario exists)
 
@@ -216,7 +432,16 @@ This step catches runtime errors that static analysis misses:
 - Console errors from runtime exceptions
 - Network failures
 
+#### Validation Tool Priority
+
+1. **Primary:** agent-browser (faster, natural language interface)
+2. **Fallback:** Playwright MCP tools (if agent-browser fails or unavailable)
+
+---
+
 #### For Frontend Validation (type: "frontend"):
+
+##### Option A: Using agent-browser (PRIMARY - Recommended)
 
 1. **Check/Start dev server:**
 ```bash
@@ -229,17 +454,34 @@ lsof -i :PORT > /dev/null 2>&1 && echo "Server running" || (npm run dev &)
 for i in {1..30}; do curl -s http://localhost:PORT > /dev/null && break || sleep 1; done
 ```
 
-3. **Launch browser and execute validation steps:**
-   - Use `mcp__playwright__browser_navigate` to go to the URL
-   - Use `mcp__playwright__browser_click` / `mcp__playwright__browser_type` for interactions
-   - Follow the `steps` from validationScenario
+3. **Invoke agent-browser skill:**
+```
+/agent-browser Navigate to http://localhost:[PORT]/[path]. [Validation steps from PRD]. Check for console errors. Verify [success criteria]. Take screenshot.
+```
 
-4. **Check for errors:**
-   - Use `mcp__playwright__browser_console_messages` with `level: "error"` to check for console errors
-   - Use `mcp__playwright__browser_network_requests` to verify API calls succeeded
-   - Use `mcp__playwright__browser_take_screenshot` for visual record
+**Example:**
+```
+/agent-browser Navigate to http://localhost:3000/tasks. Click on the first task card. Verify priority badge is visible with correct color (red for high, yellow for medium, gray for low). Check for console errors. Take screenshot of the task detail view.
+```
 
-5. **Verify ALL successCriteria from validationScenario**
+**What agent-browser does:**
+- Automates browser interactions with natural language
+- Navigates pages, clicks elements, fills forms
+- Takes screenshots and captures visual state
+- Checks console for errors
+- Faster than Playwright MCP tools
+
+##### Option B: Using Playwright (FALLBACK - If agent-browser fails)
+
+If agent-browser returns an error or is unavailable, fall back to Playwright MCP tools:
+
+1. **Navigate:** `mcp__playwright__browser_navigate`
+2. **Interact:** `mcp__playwright__browser_click`, `mcp__playwright__browser_type`
+3. **Check errors:** `mcp__playwright__browser_console_messages` with `level: "error"`
+4. **Verify network:** `mcp__playwright__browser_network_requests`
+5. **Screenshot:** `mcp__playwright__browser_take_screenshot`
+
+---
 
 #### For API Validation (type: "api"):
 
@@ -256,11 +498,15 @@ curl -X POST http://localhost:PORT/api/endpoint \
    - Response body contains expected fields
    - No error messages
 
+---
+
 #### For Database Validation (type: "database"):
 
 1. **Trigger the operation** (via API or script)
 2. **Query database** (via MCP tool or Bash CLI)
 3. **Verify data integrity** per successCriteria
+
+---
 
 #### If Validation FAILS:
 
@@ -269,17 +515,30 @@ curl -X POST http://localhost:PORT/api/endpoint \
 3. **Re-run validation**
 4. **Do NOT commit until validation passes**
 
+---
+
 **Print validation results:**
 ```
 RUNTIME VALIDATION
+  Tool: agent-browser (primary)
+  Fallback Used: No
   Type: frontend
-  URL: http://localhost:3000/login
-  Steps: Navigated to /login, filled form, clicked submit
+  URL: http://localhost:3000/tasks
+  Steps: Navigated to /tasks, verified priority badges, checked console
   ✓ Server: Running on port 3000
-  ✓ Console: 0 errors (checked 15 messages)
-  ✓ Network: 3/3 requests successful
+  ✓ Console: 0 errors
   ✓ Visual: Screenshot captured
+  ✓ Success Criteria: All verified
   Status: PASSED
+```
+
+**If fallback was needed:**
+```
+RUNTIME VALIDATION
+  Tool: Playwright (fallback)
+  Fallback Reason: agent-browser returned error
+  Type: frontend
+  ...
 ```
 
 **If no validationScenario exists or type is "none":**
@@ -298,24 +557,47 @@ RUNTIME VALIDATION
 
 **⛔ VALIDATION REQUIRED before updating PRD:**
 
-Verify ALL conditions are met:
-1. ✓ Quality Review Pass 1 executed (code-simplifier)
-2. ✓ Quality Review Pass 2 executed (code-review)
-3. ✓ All acceptance criteria were verified
+Verify ALL conditions based on story type from Step 2.5:
+
+**For ALL stories:**
+1. ✓ code-simplifier executed
+2. ✓ code-review executed
+3. ✓ All acceptance criteria verified
 4. ✓ Quality checks pass (typecheck, lint, tests)
 
-**If ANY condition is not met, do NOT set passes: true. Stop and log the issue.**
+**For frontend-react stories, ALSO verify:**
+5. ✓ vercel-react-best-practices executed
+6. ✓ web-design-guidelines executed
+7. ✓ rams executed OR documented reason for skip
+
+**For frontend-other stories, ALSO verify:**
+5. ✓ web-design-guidelines executed
+6. ✓ rams executed OR documented reason for skip
+
+**If ANY mandatory condition is not met, do NOT set passes: true. Stop and log the issue.**
 
 Edit `PRD_FILE` to update the completed story:
-1. Set `preCommit` to `["code-simplifier", "code-review"]` (MUST contain both)
-2. Set `passes: true` ONLY if preCommit contains BOTH tools
+1. Set `preCommit` to array of ALL executed quality passes
+2. Set `passes: true` ONLY if all mandatory passes for story type are complete
+3. Update `notes` with frontend-design usage and validation tool used
 
-**Example of valid completed story:**
+**Example: Frontend React story (all passes):**
 ```json
 {
   "id": "US-001",
   "passes": true,
-  "preCommit": ["code-simplifier", "code-review"]
+  "preCommit": ["code-simplifier", "vercel-react-best-practices", "web-design-guidelines", "code-review", "rams"],
+  "notes": "frontend-design used for PriorityBadge component. agent-browser validation passed."
+}
+```
+
+**Example: Backend story (minimal passes):**
+```json
+{
+  "id": "US-002",
+  "passes": true,
+  "preCommit": ["code-simplifier", "code-review"],
+  "notes": "API endpoint implementation. No frontend skills applicable."
 }
 ```
 
@@ -323,7 +605,7 @@ Edit `PRD_FILE` to update the completed story:
 ```json
 {
   "passes": true,
-  "preCommit": ["code-simplifier"]  // INVALID: missing code-review!
+  "preCommit": ["code-simplifier"]  // INVALID: missing code-review (mandatory for all)!
 }
 ```
 
@@ -350,6 +632,7 @@ feat(STORY-ID): Title of the story
 Feature Summary: [1-2 lines: What THIS feature adds and why it matters to the user]
 
 Story: STORY-ID - [Story title]
+Story Type: [frontend-react / frontend-other / backend / config]
 
 Implemented:
 - [What was built - main functionality]
@@ -366,30 +649,40 @@ Files Changed:
 - prd.json: Story marked complete
 - progress.md: Completion log added
 
-Tools, Skills & Agents:
-- Quality Review:
-  - code-simplifier: [N] refinements applied
-  - code-review: [N] issues found/fixed
-- Skills: [frontend-design: description / none]
-- MCP Tools: [Context7: docs fetched / Playwright: UI validated / none]
+Skill Determination (from Story Analysis):
+| Skill | Determination | Reason |
+|-------|---------------|--------|
+| code-simplifier | MANDATORY | All stories |
+| code-review | MANDATORY | All stories |
+| vercel-react-best-practices | [STATUS] | [Reason] |
+| web-design-guidelines | [STATUS] | [Reason] |
+| frontend-design | [STATUS] | [Reason] |
+| rams | [STATUS] | [Reason] |
 
-Browser Validation:
-- Status: [✓ Validated / ✗ Not applicable]
-- Checked: [What was validated, or "N/A - no UI changes"]
+Quality Review Results:
+| Tool | Status | Impact |
+|------|--------|--------|
+| code-simplifier | ✓ APPLIED | [N] refinements |
+| code-review | ✓ APPLIED | [N] bugs fixed |
+| vercel-react-best-practices | ✓ APPLIED / UNUSED | [N] optimizations / N/A |
+| web-design-guidelines | ✓ APPLIED / UNUSED | [N] fixes / N/A |
+| frontend-design | ✓ USED / NOT USED | [Description] / N/A |
+| rams | ✓ APPLIED / SKIPPED | [N] polish / [Reason] |
+
+Unused Tools (with reason):
+- [Tool]: [Reason why unused, e.g., "Not React code", "Backend story"]
 
 Runtime Validation:
+- Tool: [agent-browser (primary) / Playwright (fallback) / N/A]
+- Fallback Used: [Yes (reason) / No]
 - Type: [frontend / api / database / none]
 - Scenario: [Brief description of validation steps from PRD]
-- Expected: [List of success criteria from PRD]
-- Actual Results:
-  [✓/✗] [Result 1 with details]
-  [✓/✗] [Result 2 with details]
-- Conclusion: [PASSED ✓ / FAILED → Fixed → PASSED ✓ / SKIPPED]
+- Result: [PASSED ✓ / FAILED → Fixed → PASSED ✓ / SKIPPED]
 
 Decisions:
 - [Decision 1]: [Justification]
 
-Validated:
+Quality Checks:
 - Typecheck: passed
 - Lint: passed
 - Build: passed
@@ -444,18 +737,26 @@ FILES CHANGED ([N] files)
   ~ prd.json                       [story completed]
   ~ progress.md                    [log added]
 
-TOOLS, SKILLS & AGENTS
-  Quality Review:
-    ✓ code-simplifier: [N] refinements applied
-    ✓ code-review: [N] issues found/fixed
-  Skills: [frontend-design / none]
-  MCP Tools: [Context7 / Playwright / none]
+STORY TYPE: [frontend-react / frontend-other / backend / config]
 
-BROWSER VALIDATION
-  Status: [✓ Validated / ✗ Not applicable]
-  Checked: [What was validated]
+SKILL DETERMINATION & RESULTS
+  Tier 1 (Mandatory - All):
+    ✓ code-simplifier: [N] refinements
+    ✓ code-review: [N] bugs fixed
+
+  Tier 2 (Conditional - Frontend):
+    ✓ vercel-react-best-practices: [N] optimizations / UNUSED (not React)
+    ✓ web-design-guidelines: [N] fixes / UNUSED (backend)
+
+  Tier 3 (Recommended):
+    ✓ rams: [N] polish / SKIPPED ([reason])
+
+  Implementation:
+    ✓ frontend-design: [Component] / NOT USED
 
 RUNTIME VALIDATION
+  Tool: [agent-browser / Playwright (fallback) / N/A]
+  Fallback: [Used / Not needed]
   Type: [frontend / api / database / none]
   Scenario: [Brief description]
   Results:
@@ -530,20 +831,37 @@ NEXT UP: [NEXT-STORY-ID] - [Next Story Title]
 | `prd.json` | ~ modified | Story marked complete |
 | `progress.md` | ~ modified | Completion log added |
 
-### Quality Review (REQUIRED - 2 PASSES)
+### Story Analysis
+**Story Type:** [frontend-react / frontend-other / backend / config]
 
-**Pass 1 - code-simplifier:** ✓ Applied ([N] refinements)
-- [Specific improvement 1]
-- [Specific improvement 2]
+### Quality Review (TIERED SYSTEM)
 
-**Pass 2 - code-review:** ✓ Complete ([N] issues found/fixed)
-- HIGH: [Issue and fix description]
-- MEDIUM: [Issue and fix description]
-- LOW: [Skipped - documented for future]
+**Tier 1 - Mandatory (All Stories):**
+- **code-simplifier:** ✓ Applied ([N] refinements)
+  - [Specific improvement 1]
+  - [Specific improvement 2]
+- **code-review:** ✓ Complete ([N] issues found/fixed)
+  - HIGH: [Issue and fix]
+  - MEDIUM: [Issue and fix]
 
-**Validation:** Both passes executed successfully
+**Tier 2 - Conditional Mandatory (Frontend):**
+- **vercel-react-best-practices:** ✓ Applied ([N] optimizations) / UNUSED (not React)
+  - [Optimization 1: e.g., Added useMemo]
+- **web-design-guidelines:** ✓ Applied ([N] fixes) / UNUSED (backend story)
+  - [Fix 1: e.g., Added aria-label]
+
+**Tier 3 - Recommended:**
+- **rams:** ✓ Applied ([N] polish) / SKIPPED (reason: [reason])
+  - [Polish 1: e.g., Adjusted shadow depth]
+
+**Implementation Skills:**
+- **frontend-design:** ✓ Used for [component] / NOT USED (reason: [reason])
+
+**Validation Gate:** All mandatory passes for story type: ✓ Complete
 
 ### Runtime Validation
+- **Tool:** [agent-browser (primary) / Playwright (fallback) / N/A]
+- **Fallback Used:** [Yes (reason) / No]
 - **Type:** [frontend / api / database / none]
 - **Scenario:** [Brief description of validation steps]
 - **Expected:** [Success criteria from PRD]
@@ -592,74 +910,174 @@ NEXT UP: [NEXT-STORY-ID] - [Next Story Title]
 
 ---
 
-## Available Skills for UI/UX Work
+## Available Skills Reference
 
-### Frontend-Design Skill
+### Skill Applicability Matrix
 
-For stories involving **UI components, visual design, or user experience**, you can use the frontend-design skill.
+| Skill | Backend | Config | Frontend (React) | Frontend (Other) | Determination |
+|-------|---------|--------|------------------|------------------|---------------|
+| code-simplifier | MANDATORY | MANDATORY | MANDATORY | MANDATORY | Fixed |
+| code-review | MANDATORY | MANDATORY | MANDATORY | MANDATORY | Fixed |
+| vercel-react-best-practices | UNUSED | UNUSED | MANDATORY | UNUSED | Fixed |
+| web-design-guidelines | UNUSED | UNUSED | MANDATORY | MANDATORY | Fixed |
+| frontend-design | UNUSED | UNUSED | Agent-Decided | Agent-Decided | Per-Story |
+| rams | UNUSED | UNUSED | Agent-Decided | Agent-Decided | Per-Story |
+| agent-browser | UNUSED | UNUSED | MANDATORY* | MANDATORY* | Per-Story |
 
-**When to use:**
-- Creating new UI components or pages
-- Implementing visual designs or layouts
-- Building interactive user interfaces
-- Any story with UX-related acceptance criteria
-
-**How to invoke:**
-```json
-{
-  "subagent_type": "frontend-design:frontend-design",
-  "prompt": "Create [description of UI component/page]. Requirements:\n- [Requirement 1]\n- [Requirement 2]\n\nFiles to create/modify:\n- [file paths]",
-  "description": "Design [component name]"
-}
-```
-
-**What it does:**
-- Creates distinctive, production-grade frontend interfaces
-- Avoids generic AI aesthetics
-- Generates creative, polished code
-- Follows modern design principles
-
-**Note:** This skill is OPTIONAL. Use it when the story benefits from dedicated design focus. For simple UI changes, direct implementation is fine.
+*When validationScenario exists
 
 ---
 
-## Available MCP Tools
+### Tier 1 Skills (Mandatory - All Stories)
 
-The following tools are available for enhanced validation and documentation:
+#### code-simplifier
 
-### Browser Automation (Playwright)
+**Invocation:** Task tool with `subagent_type: "code-simplifier:code-simplifier"`
+
+**Purpose:** Simplifies and refines code for clarity and maintainability while preserving functionality.
+
+**When:** Always, after implementation, before other passes.
+
+---
+
+#### code-review
+
+**Invocation:** Task tool with `subagent_type: "general-purpose"` (with review prompt)
+
+**Purpose:** Reviews code for bugs, security issues, and edge cases with fresh context.
+
+**When:** Always, after all other passes (to catch any introduced issues).
+
+---
+
+### Tier 2 Skills (Conditional Mandatory - Frontend)
+
+#### vercel-react-best-practices
+
+**Invocation:** `/vercel-react-best-practices`
+
+**Purpose:** React/Next.js optimization from Vercel Engineering.
+
+**What it does:**
+- Applies performance optimizations (memoization, lazy loading)
+- Suggests client/server component patterns
+- Identifies hydration issues
+- Recommends data fetching best practices
+- Bundle optimization suggestions
+
+**When:** MANDATORY for `frontend-react` stories. UNUSED for all others.
+
+---
+
+#### web-design-guidelines
+
+**Invocation:** `/web-design-guidelines`
+
+**Purpose:** Reviews UI code for accessibility, UX, and performance.
+
+**What it does:**
+- Accessibility review (WCAG compliance)
+- Keyboard support and focus management
+- Form behavior and error states
+- Animation performance and motion preferences
+- Responsive design and mobile support
+
+**When:** MANDATORY for `frontend-react` and `frontend-other` stories. UNUSED for backend/config.
+
+---
+
+### Tier 3 Skills (Agent-Decided)
+
+#### frontend-design
+
+**Invocation:** `/frontend-design` or Task tool with `subagent_type: "frontend-design:frontend-design"`
+
+**Purpose:** Creates distinctive, production-grade frontend interfaces that avoid generic "AI slop" aesthetics.
+
+**What it does:**
+- Creates polished UI components with attention to aesthetic details
+- Makes creative design choices
+- Implements real working code
+- Follows modern design principles
+
+**Determination Criteria:**
+- MANDATORY: Story creates new page, new complex component, or significant visual redesign
+- RECOMMENDED: Story modifies existing UI with visual changes
+- UNUSED: Logic-only, backend, or config changes
+
+---
+
+#### rams
+
+**Invocation:** `/rams`
+
+**Purpose:** Design engineer review for accessibility issues, visual inconsistencies, and UI polish.
+
+**What it does:**
+- Reviews for accessibility issues
+- Identifies visual inconsistencies
+- Suggests UI polish improvements
+- Offers to fix identified issues
+
+**Determination Criteria:**
+- MANDATORY: Story creates new visible UI elements (buttons, cards, forms)
+- RECOMMENDED: Story modifies existing visible UI elements
+- UNUSED: No visual impact (API, database, logic changes)
+
+---
+
+### Validation Tools
+
+#### agent-browser (PRIMARY)
+
+**Invocation:** `/agent-browser [natural language instructions]`
+
+**Purpose:** Browser automation for testing, form filling, screenshots, and data extraction.
+
+**What it does:**
+- Navigates websites with natural language
+- Interacts with web pages (click, type, scroll)
+- Takes screenshots
+- Checks for console errors
+- Verifies success criteria
+
+**Example:**
+```
+/agent-browser Navigate to localhost:3000/tasks. Verify priority badges are visible with correct colors. Check for console errors. Take screenshot.
+```
+
+**When:** MANDATORY when validationScenario.type is "frontend" or "api". Primary tool for browser validation.
+
+---
+
+#### Playwright MCP Tools (FALLBACK)
+
+**Purpose:** Fallback browser automation if agent-browser fails or is unavailable.
 
 | Tool | Purpose |
 |------|---------|
 | `mcp__playwright__browser_navigate` | Navigate to a URL |
-| `mcp__playwright__browser_snapshot` | Accessibility tree (better than screenshot for analysis) |
-| `mcp__playwright__browser_take_screenshot` | Visual capture for records |
-| `mcp__playwright__browser_click` | Click on elements |
-| `mcp__playwright__browser_type` | Type into input fields |
-| `mcp__playwright__browser_console_messages` | Read console logs (errors, warnings) |
-| `mcp__playwright__browser_network_requests` | Check API calls and responses |
+| `mcp__playwright__browser_snapshot` | Accessibility tree |
+| `mcp__playwright__browser_take_screenshot` | Visual capture |
+| `mcp__playwright__browser_click` | Click elements |
+| `mcp__playwright__browser_type` | Type into inputs |
+| `mcp__playwright__browser_console_messages` | Read console logs |
+| `mcp__playwright__browser_network_requests` | Check API calls |
 
-### Documentation (Context7)
+**When:** Only use if agent-browser returns error or is unavailable.
+
+---
+
+### Documentation Tools
+
+#### Context7
 
 | Tool | Purpose |
 |------|---------|
 | `mcp__context7__resolve-library-id` | Find library documentation ID |
 | `mcp__context7__query-docs` | Query specific library documentation |
 
-### When to Use Each Tool
-
-| Scenario | Tool |
-|----------|------|
-| UI validation, visual verification | Playwright browser tools |
-| Check for console errors | `mcp__playwright__browser_console_messages` |
-| Verify API calls succeeded | `mcp__playwright__browser_network_requests` |
-| Fetch library/framework docs | Context7 tools |
-| Complex interactions | Playwright for testing |
-
-**Important:** These tools are OPTIONAL. Use them when they add value:
-- UI stories → Browser validation recommended (see validationScenario)
-- Using unfamiliar libraries → Context7 for documentation
-- Complex interactions → Playwright for testing
+**When:** Use when working with unfamiliar libraries or frameworks.
 
 ---
 
@@ -702,33 +1120,42 @@ If `git commit` fails:
 
 - ONE story per iteration
 - NO questions - be decisive
-- **MUST RUN BOTH quality review passes** (code-simplifier AND code-review) - this is BLOCKING
-- **MUST RUN runtime validation** if story has `validationScenario` in PRD
+- **MUST RUN Story Analysis (Step 2.5)** to determine skill applicability
+- **MUST RUN ALL MANDATORY passes for story type** - this is BLOCKING:
+  - Tier 1: code-simplifier + code-review (ALL stories)
+  - Tier 2: vercel-react-best-practices (React/Next.js), web-design-guidelines (all frontend)
+  - Tier 3: rams (agent-decided)
+- **MUST RUN runtime validation** with agent-browser (primary) if story has `validationScenario`
 - **1 COMMIT per story:** `feat(STORY-ID)` includes implementation + prd.json + progress.md
 - MUST PUSH after each story (backup to remote immediately)
-- MUST UPDATE prd.json with: `passes: true`, `preCommit: ["code-simplifier", "code-review"]`
-- MUST LOG to progress.md BEFORE the commit
+- MUST UPDATE prd.json with: `passes: true`, `preCommit: [all executed passes]`, `notes: [skill usage]`
+- MUST LOG to progress.md BEFORE the commit with full skill tracking
 - Working directory = project root, NOT PRD directory
 - Stage ALL files for THIS story in a single commit: implementation + prd.json + progress.md
-- **⛔ NEVER set passes: true if preCommit doesn't contain BOTH tools**
+- **⛔ NEVER set passes: true if mandatory passes for story type are missing**
 - **⛔ NEVER commit if runtime validation fails (when validationScenario exists)**
 
 ## Console Output Requirements
 
 **Print status at each phase for user monitoring:**
 1. **Step 2:** Print "▶ STARTING" block with story details and acceptance criteria
-2. **Step 5:** Print "QUALITY CHECKS" results (typecheck, lint, tests)
-3. **Step 5.5:** Print "QUALITY REVIEW" results for BOTH passes:
-   - Pass 1 (code-simplifier): refinements applied
-   - Pass 2 (code-review): issues found and fixed by severity
+2. **Step 2.5:** Print "▶ STORY ANALYSIS" block with skill determination table
+3. **Step 4:** Print "IMPLEMENTATION - FRONTEND-DESIGN" if skill was used
+4. **Step 5:** Print "QUALITY CHECKS" results (typecheck, lint, tests)
+5. **Step 5.5:** Print "QUALITY REVIEW" results for ALL passes:
+   - Tier 1: code-simplifier, code-review
+   - Tier 2: vercel-react-best-practices, web-design-guidelines (if applicable)
+   - Tier 3: rams (if applicable)
    - Validation gate status
-4. **Step 5.7:** Print "RUNTIME VALIDATION" results (if validationScenario exists):
+6. **Step 5.7:** Print "RUNTIME VALIDATION" results (if validationScenario exists):
+   - Tool used (agent-browser or Playwright fallback)
    - Type, scenario, expected vs actual results
    - Conclusion (PASSED/FAILED/SKIPPED)
-5. **Step 7.6:** Print full "✓ STORY COMPLETE" block with:
+7. **Step 7.6:** Print full "✓ STORY COMPLETE" block with:
    - Commit hash (single feat commit with all changes)
    - Files changed with +/~/- indicators
-   - Tools, skills, agents used
+   - Full skill determination and results table
+   - Runtime validation details with tool used
    - Runtime validation results
    - Quality review details (both passes with specifics)
    - Acceptance criteria verification
