@@ -77,7 +77,7 @@ This document describes the JSON format that Ralph uses for autonomous PRD execu
 | `priority` | number | Execution order. Lower numbers run first |
 | `dependencies` | array | Story IDs that must be completed first. Empty array `[]` if no dependencies. Example: `["US-001", "US-002"]` |
 | `passes` | boolean | `false` initially. Set to `true` ONLY when ALL conditions are met (see below) |
-| `preCommit` | array | **REQUIRED for passes: true.** Must contain `["code-simplifier", "code-review"]` when story is complete. Empty array `[]` only for incomplete stories. |
+| `preCommit` | array | **REQUIRED for passes: true.** Must contain all mandatory passes for story type. Minimum: `["code-simplifier", "code-review"]` (all stories). Frontend React stories add: `"vercel-react-best-practices"`, `"web-design-guidelines"`, optionally `"rams"`. Empty array `[]` only for incomplete stories. |
 | `validationScenario` | object | **Optional.** Runtime validation config (see validationScenario Fields below). Omit or set `type: "none"` to skip. |
 | `notes` | string | Optional field for implementation notes or blockers |
 
@@ -92,37 +92,85 @@ This document describes the JSON format that Ralph uses for autonomous PRD execu
 | `successCriteria` | array | List of success criteria to verify (e.g., `["No console errors", "Page renders correctly"]`) |
 
 **When to use each type:**
-- `frontend`: UI components, pages, visual changes. Uses Playwright MCP browser tools.
-- `api`: Backend endpoints, server actions. Uses CURL requests.
+- `frontend`: UI components, pages, visual changes. Uses **agent-browser** (primary) or Playwright MCP tools (fallback).
+- `api`: Backend endpoints, server actions. Uses CURL requests or agent-browser.
 - `database`: Data persistence, migrations. Uses database queries.
 - `none`: No runtime validation needed (code-only changes).
 
+**Validation Tools:**
+- **Primary:** `/agent-browser` - Faster, natural language browser automation
+- **Fallback:** Playwright MCP tools - Used if agent-browser unavailable
+
 ### Important: `passes` Field Semantics
 
-The `passes` field indicates whether a story is **fully complete**. It should ONLY be set to `true` when ALL of these conditions are met:
+The `passes` field indicates whether a story is **fully complete**. It should ONLY be set to `true` when ALL mandatory conditions for the story type are met.
 
-1. **Quality Review Pass 1 executed** - `code-simplifier` agent was spawned and feedback applied
-2. **Quality Review Pass 2 executed** - `code-review` agent was spawned and issues fixed
-3. **preCommit is populated** - Contains `["code-simplifier", "code-review"]`
-4. **Runtime validation passed** - If `validationScenario` exists and type is not "none"
-5. **All acceptance criteria verified** - Every criterion in the array has been checked
-6. **Quality checks pass** - Typecheck, lint, and tests all succeed
-7. **Commit is successful** - Changes are committed to git with proper message
+#### Tiered Quality Review System
+
+**Tier 1 - Mandatory (ALL stories):**
+- `code-simplifier` - Code simplification and cleanup
+- `code-review` - Bug detection with fresh context
+
+**Tier 2 - Conditional Mandatory (based on story type):**
+- `vercel-react-best-practices` - MANDATORY for frontend-react stories
+- `web-design-guidelines` - MANDATORY for all frontend stories (react and other)
+
+**Tier 3 - Agent-Decided:**
+- `rams` - Visual polish (MANDATORY/RECOMMENDED/UNUSED based on story analysis)
+- `frontend-design` - Used during implementation, tracked in `notes`
+
+#### Conditions for `passes: true`
+
+**For ALL stories:**
+1. ✓ `code-simplifier` executed and improvements applied
+2. ✓ `code-review` executed and issues fixed
+3. ✓ Quality checks pass (typecheck, lint, tests)
+4. ✓ Commit is successful
+
+**For frontend-react stories, ALSO:**
+5. ✓ `vercel-react-best-practices` executed
+6. ✓ `web-design-guidelines` executed
+7. ✓ `rams` executed OR documented reason for skip
+8. ✓ Runtime validation passed (if validationScenario exists) using agent-browser
+
+**For frontend-other stories, ALSO:**
+5. ✓ `web-design-guidelines` executed
+6. ✓ `rams` executed OR documented reason for skip
+7. ✓ Runtime validation passed (if validationScenario exists)
 
 **⛔ NEVER set `passes: true` if:**
-- `preCommit` is empty `[]` - this means quality review was not run
-- `preCommit` only contains one tool - BOTH are required
+- `preCommit` is empty `[]`
+- `preCommit` missing mandatory passes for story type
 - Runtime validation failed (when `validationScenario` exists)
 - Any acceptance criterion is not met
 - Quality checks fail
-- The commit was not created
-- You are unsure whether criteria are satisfied
 
-**Valid completed story:**
+#### Examples by Story Type
+
+**Backend story (minimal):**
 ```json
 {
   "passes": true,
-  "preCommit": ["code-simplifier", "code-review"]
+  "preCommit": ["code-simplifier", "code-review"],
+  "notes": "API endpoint implementation. No frontend skills applicable."
+}
+```
+
+**Frontend React story (all passes):**
+```json
+{
+  "passes": true,
+  "preCommit": ["code-simplifier", "vercel-react-best-practices", "web-design-guidelines", "code-review", "rams"],
+  "notes": "frontend-design used for PriorityBadge component. agent-browser validation passed."
+}
+```
+
+**Frontend React story (rams skipped):**
+```json
+{
+  "passes": true,
+  "preCommit": ["code-simplifier", "vercel-react-best-practices", "web-design-guidelines", "code-review"],
+  "notes": "rams skipped: no new visual elements, only logic changes. agent-browser validation passed."
 }
 ```
 
@@ -130,14 +178,14 @@ The `passes` field indicates whether a story is **fully complete**. It should ON
 ```json
 {
   "passes": true,
-  "preCommit": ["code-simplifier"]  // Missing code-review!
+  "preCommit": ["code-simplifier"]  // Missing code-review (mandatory for all)!
 }
 ```
 
 ```json
 {
   "passes": true,
-  "preCommit": []  // Empty - no quality review!
+  "preCommit": ["code-simplifier", "code-review"]  // Frontend React but missing vercel-react-best-practices!
 }
 ```
 
@@ -252,7 +300,7 @@ The `passes` field indicates whether a story is **fully complete**. It should ON
 }
 ```
 
-### Example of Completed Story (with tracking fields)
+### Example of Completed Backend Story (minimal passes)
 
 ```json
 {
@@ -268,11 +316,11 @@ The `passes` field indicates whether a story is **fully complete**. It should ON
   "dependencies": [],
   "passes": true,
   "preCommit": ["code-simplifier", "code-review"],
-  "notes": "Used Prisma enum for type safety. Code review found no issues."
+  "notes": "Backend story - frontend skills not applicable. Used Prisma enum for type safety."
 }
 ```
 
-### Example of Completed Story with Runtime Validation
+### Example of Completed Frontend React Story (all passes)
 
 ```json
 {
@@ -287,7 +335,7 @@ The `passes` field indicates whether a story is **fully complete**. It should ON
   "priority": 2,
   "dependencies": ["US-001"],
   "passes": true,
-  "preCommit": ["code-simplifier", "code-review"],
+  "preCommit": ["code-simplifier", "vercel-react-best-practices", "web-design-guidelines", "code-review", "rams"],
   "validationScenario": {
     "type": "frontend",
     "devServer": "npm run dev",
@@ -298,7 +346,34 @@ The `passes` field indicates whether a story is **fully complete**. It should ON
       "Priority badges visible"
     ]
   },
-  "notes": "Runtime validation passed. No console errors, badges render correctly."
+  "notes": "frontend-design used for PriorityBadge component. agent-browser validation passed. vercel-react: memoized component. web-design-guidelines: added aria-label. rams: improved color contrast."
+}
+```
+
+### Example of Frontend Story (rams skipped with reason)
+
+```json
+{
+  "id": "US-003",
+  "title": "Add priority selector to task edit",
+  "description": "As a user, I want to change a task's priority when editing it.",
+  "acceptanceCriteria": [
+    "Priority dropdown in task edit modal",
+    "Saves immediately on selection change",
+    "Typecheck passes"
+  ],
+  "priority": 3,
+  "dependencies": ["US-001"],
+  "passes": true,
+  "preCommit": ["code-simplifier", "vercel-react-best-practices", "web-design-guidelines", "code-review"],
+  "validationScenario": {
+    "type": "frontend",
+    "devServer": "npm run dev",
+    "port": 3000,
+    "steps": "Click edit, change priority, verify save",
+    "successCriteria": ["Priority updates correctly"]
+  },
+  "notes": "rams skipped: using existing dropdown component, no new visual elements. agent-browser validation passed."
 }
 ```
 

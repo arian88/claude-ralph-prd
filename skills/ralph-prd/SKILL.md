@@ -865,6 +865,47 @@ After creating `prd.json`, run the Ralph agent loop:
 
 ---
 
+## Available Skills for Ralph Agent
+
+During autonomous execution, Ralph has access to specialized skills for code quality and validation.
+
+### Skill Applicability Matrix
+
+| Skill | Backend | Config | Frontend (React) | Frontend (Other) |
+|-------|---------|--------|------------------|------------------|
+| code-simplifier | MANDATORY | MANDATORY | MANDATORY | MANDATORY |
+| code-review | MANDATORY | MANDATORY | MANDATORY | MANDATORY |
+| vercel-react-best-practices | UNUSED | UNUSED | **MANDATORY** | UNUSED |
+| web-design-guidelines | UNUSED | UNUSED | **MANDATORY** | **MANDATORY** |
+| frontend-design | UNUSED | UNUSED | Agent-Decided | Agent-Decided |
+| rams | UNUSED | UNUSED | Agent-Decided | Agent-Decided |
+| agent-browser | UNUSED | UNUSED | MANDATORY* | MANDATORY* |
+
+*When validationScenario exists
+
+### Tiered Quality Review System
+
+**Tier 1 - Mandatory (All Stories):**
+- `code-simplifier` - Simplifies code for clarity
+- `code-review` - Bug detection with fresh context
+
+**Tier 2 - Conditional Mandatory (Frontend):**
+- `vercel-react-best-practices` - React/Next.js optimization (React only)
+- `web-design-guidelines` - Accessibility and UX review (all frontend)
+
+**Tier 3 - Agent-Decided:**
+- `frontend-design` - Production-grade UI creation
+- `rams` - Visual polish and accessibility fixes
+
+### Validation Tools
+
+- **Primary:** `agent-browser` - Faster browser automation with natural language
+- **Fallback:** Playwright MCP tools (if agent-browser unavailable)
+
+See `prompt.md` for detailed invocation instructions.
+
+---
+
 ## Skill Completion Criteria
 
 This skill is **ONLY complete** when ALL of the following are true:
