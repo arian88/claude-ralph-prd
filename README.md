@@ -51,7 +51,9 @@ These two passes run on EVERY commit, regardless of story type:
 
 | Tool | What it does | When Ralph uses it |
 |------|--------------|-------------------|
-| **agent-browser** | Fast, natural language browser automation | Primary validation tool for frontend stories. Verifies UI renders correctly, checks for console errors. |
+| **Playwright MCP** | Browser automation via direct `mcp__playwright__*` tool calls | ONLY validation tool for frontend stories. Verifies UI renders correctly, checks for console errors. |
+
+⛔ Do NOT use Task tool for browser validation. Call Playwright MCP tools directly.
 
 ### Installation Commands
 
@@ -63,10 +65,6 @@ npx add-skill vercel-labs/agent-skills
 # web-design-guidelines (accessibility and UX review)
 # https://vercel.com/changelog/web-interface-guidelines-now-available-as-an-agent-command
 curl -fsSL https://vercel.com/design/guidelines/install | bash
-
-# agent-browser (browser automation for validation)
-# https://github.com/vercel-labs/agent-browser
-npm install -g agent-browser && agent-browser install
 
 # rams (visual polish and accessibility)
 # https://www.rams.ai

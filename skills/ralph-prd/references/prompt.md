@@ -95,7 +95,7 @@ Based on story type, determine the status of each skill:
 |-------|-------------------|
 | **frontend-design** | MANDATORY: Story creates new page/complex component/visual redesign. RECOMMENDED: Story modifies existing UI with visual changes. UNUSED: Logic-only, backend, or config changes. |
 | **rams** | MANDATORY: Story creates new visible UI elements (buttons, cards, forms). RECOMMENDED: Story modifies existing visible UI. UNUSED: No visual impact. |
-| **agent-browser** | MANDATORY: Story has `validationScenario` with `type: "frontend"` or `type: "api"`. UNUSED: No validationScenario or `type: "none"`. |
+| **Playwright MCP** | MANDATORY: Story has `validationScenario` with `type: "frontend"` or `type: "api"`. UNUSED: No validationScenario or `type: "none"`. |
 
 #### 2.5.3: Print Story Analysis
 
@@ -116,10 +116,10 @@ Based on story type, determine the status of each skill:
   │ web-design-guidelines           │ [STATUS]   │ [Reason]                │
   │ frontend-design                 │ [STATUS]   │ [Reason]                │
   │ rams                            │ [STATUS]   │ [Reason]                │
-  │ agent-browser                   │ [STATUS]   │ [Reason]                │
+  │ Playwright MCP                  │ [STATUS]   │ [Reason]                │
   └─────────────────────────────────┴────────────┴─────────────────────────┘
 
-  Validation Tool: agent-browser (primary), Playwright (fallback)
+  Validation Tool: Playwright MCP (direct calls only)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
@@ -432,54 +432,68 @@ This step catches runtime errors that static analysis misses:
 - Console errors from runtime exceptions
 - Network failures
 
-#### Validation Tool Priority
+#### Browser Validation using Playwright MCP
 
-1. **Primary:** agent-browser (faster, natural language interface)
-2. **Fallback:** Playwright MCP tools (if agent-browser fails or unavailable)
+> **⛔ CRITICAL: NEVER USE TASK TOOL FOR BROWSER VALIDATION**
+>
+> The Task tool spawns a subprocess that CANNOT access Playwright MCP tools.
+>
+> **CORRECT:** Call `mcp__playwright__browser_*` tools directly
+> **WRONG:** `/agent-browser`, Task tool with browser subagent
+
+**Playwright MCP is the ONLY validation method.** There is no fallback.
 
 ---
 
 #### For Frontend Validation (type: "frontend"):
 
-##### Option A: Using agent-browser (PRIMARY - Recommended)
-
-1. **Check/Start dev server:**
+**Step 1: Start Development Server**
 ```bash
-# Check if port is in use (server already running)
-lsof -i :PORT > /dev/null 2>&1 && echo "Server running" || (npm run dev &)
+npm run dev &
+sleep 5  # Wait for server to be ready
 ```
 
-2. **Wait for server ready (max 30 seconds):**
+**Step 2: Navigate to the Relevant Page**
+```
+mcp__playwright__browser_navigate
+  url: "http://localhost:3000/path-to-feature"
+```
+
+**Step 3: Take Screenshot for Visual Validation**
+```
+mcp__playwright__browser_take_screenshot
+```
+Assess: Does UI match acceptance criteria? Is it professional and polished?
+
+**Step 4: Check Console for Errors**
+```
+mcp__playwright__browser_console_messages
+  level: "error"
+```
+**Any console errors = validation FAILED.**
+
+**Step 5: Functional Validation (if story involves interactions)**
+```
+mcp__playwright__browser_snapshot    # Get element refs first
+mcp__playwright__browser_click       # Perform interaction
+  element: "Submit button"
+  ref: "ref_from_snapshot"
+```
+
+**Step 6: Cleanup (CRITICAL)**
+```
+mcp__playwright__browser_close
+```
+Then stop dev server:
 ```bash
-for i in {1..30}; do curl -s http://localhost:PORT > /dev/null && break || sleep 1; done
+pkill -f "next dev" || pkill -f "npm run dev" || pkill -f "vite" || true
 ```
 
-3. **Invoke agent-browser skill:**
-```
-/agent-browser Navigate to http://localhost:[PORT]/[path]. [Validation steps from PRD]. Check for console errors. Verify [success criteria]. Take screenshot.
-```
-
-**Example:**
-```
-/agent-browser Navigate to http://localhost:3000/tasks. Click on the first task card. Verify priority badge is visible with correct color (red for high, yellow for medium, gray for low). Check for console errors. Take screenshot of the task detail view.
-```
-
-**What agent-browser does:**
-- Automates browser interactions with natural language
-- Navigates pages, clicks elements, fills forms
-- Takes screenshots and captures visual state
-- Checks console for errors
-- Faster than Playwright MCP tools
-
-##### Option B: Using Playwright (FALLBACK - If agent-browser fails)
-
-If agent-browser returns an error or is unavailable, fall back to Playwright MCP tools:
-
-1. **Navigate:** `mcp__playwright__browser_navigate`
-2. **Interact:** `mcp__playwright__browser_click`, `mcp__playwright__browser_type`
-3. **Check errors:** `mcp__playwright__browser_console_messages` with `level: "error"`
-4. **Verify network:** `mcp__playwright__browser_network_requests`
-5. **Screenshot:** `mcp__playwright__browser_take_screenshot`
+**⛔ If Playwright MCP fails (tools undefined, browser blocked):**
+1. Log the error
+2. Set `passes: false`
+3. **Do NOT commit. Do NOT fall back to "code inspection".**
+4. End iteration
 
 ---
 
@@ -520,8 +534,7 @@ curl -X POST http://localhost:PORT/api/endpoint \
 **Print validation results:**
 ```
 RUNTIME VALIDATION
-  Tool: agent-browser (primary)
-  Fallback Used: No
+  Tool: Playwright MCP (direct calls)
   Type: frontend
   URL: http://localhost:3000/tasks
   Steps: Navigated to /tasks, verified priority badges, checked console
@@ -530,15 +543,6 @@ RUNTIME VALIDATION
   ✓ Visual: Screenshot captured
   ✓ Success Criteria: All verified
   Status: PASSED
-```
-
-**If fallback was needed:**
-```
-RUNTIME VALIDATION
-  Tool: Playwright (fallback)
-  Fallback Reason: agent-browser returned error
-  Type: frontend
-  ...
 ```
 
 **If no validationScenario exists or type is "none":**
@@ -587,7 +591,7 @@ Edit `PRD_FILE` to update the completed story:
   "id": "US-001",
   "passes": true,
   "preCommit": ["code-simplifier", "vercel-react-best-practices", "web-design-guidelines", "code-review", "rams"],
-  "notes": "frontend-design used for PriorityBadge component. agent-browser validation passed."
+  "notes": "frontend-design used for PriorityBadge component. Playwright MCP validation passed."
 }
 ```
 
@@ -673,8 +677,7 @@ Unused Tools (with reason):
 - [Tool]: [Reason why unused, e.g., "Not React code", "Backend story"]
 
 Runtime Validation:
-- Tool: [agent-browser (primary) / Playwright (fallback) / N/A]
-- Fallback Used: [Yes (reason) / No]
+- Tool: [Playwright MCP / N/A]
 - Type: [frontend / api / database / none]
 - Scenario: [Brief description of validation steps from PRD]
 - Result: [PASSED ✓ / FAILED → Fixed → PASSED ✓ / SKIPPED]
@@ -755,8 +758,7 @@ SKILL DETERMINATION & RESULTS
     ✓ frontend-design: [Component] / NOT USED
 
 RUNTIME VALIDATION
-  Tool: [agent-browser / Playwright (fallback) / N/A]
-  Fallback: [Used / Not needed]
+  Tool: [Playwright MCP / N/A]
   Type: [frontend / api / database / none]
   Scenario: [Brief description]
   Results:
@@ -860,8 +862,7 @@ NEXT UP: [NEXT-STORY-ID] - [Next Story Title]
 **Validation Gate:** All mandatory passes for story type: ✓ Complete
 
 ### Runtime Validation
-- **Tool:** [agent-browser (primary) / Playwright (fallback) / N/A]
-- **Fallback Used:** [Yes (reason) / No]
+- **Tool:** [Playwright MCP / N/A]
 - **Type:** [frontend / api / database / none]
 - **Scenario:** [Brief description of validation steps]
 - **Expected:** [Success criteria from PRD]
@@ -922,9 +923,9 @@ NEXT UP: [NEXT-STORY-ID] - [Next Story Title]
 | web-design-guidelines | UNUSED | UNUSED | MANDATORY | MANDATORY | Fixed |
 | frontend-design | UNUSED | UNUSED | Agent-Decided | Agent-Decided | Per-Story |
 | rams | UNUSED | UNUSED | Agent-Decided | Agent-Decided | Per-Story |
-| agent-browser | UNUSED | UNUSED | MANDATORY* | MANDATORY* | Per-Story |
+| Playwright MCP | UNUSED | UNUSED | MANDATORY* | MANDATORY* | Per-Story |
 
-*When validationScenario exists
+*When validationScenario exists. Call `mcp__playwright__*` tools directly (never via Task tool).
 
 ---
 
@@ -1028,31 +1029,11 @@ NEXT UP: [NEXT-STORY-ID] - [Next Story Title]
 
 ### Validation Tools
 
-#### agent-browser (PRIMARY)
+#### Playwright MCP (ONLY METHOD)
 
-**Invocation:** `/agent-browser [natural language instructions]`
+> **⛔ CRITICAL: Call Playwright MCP tools DIRECTLY. Never use Task tool for browser validation.**
 
-**Purpose:** Browser automation for testing, form filling, screenshots, and data extraction.
-
-**What it does:**
-- Navigates websites with natural language
-- Interacts with web pages (click, type, scroll)
-- Takes screenshots
-- Checks for console errors
-- Verifies success criteria
-
-**Example:**
-```
-/agent-browser Navigate to localhost:3000/tasks. Verify priority badges are visible with correct colors. Check for console errors. Take screenshot.
-```
-
-**When:** MANDATORY when validationScenario.type is "frontend" or "api". Primary tool for browser validation.
-
----
-
-#### Playwright MCP Tools (FALLBACK)
-
-**Purpose:** Fallback browser automation if agent-browser fails or is unavailable.
+**Purpose:** Browser automation for frontend validation, screenshots, and console error checking.
 
 | Tool | Purpose |
 |------|---------|
@@ -1063,8 +1044,16 @@ NEXT UP: [NEXT-STORY-ID] - [Next Story Title]
 | `mcp__playwright__browser_type` | Type into inputs |
 | `mcp__playwright__browser_console_messages` | Read console logs |
 | `mcp__playwright__browser_network_requests` | Check API calls |
+| `mcp__playwright__browser_close` | **MUST call to cleanup** |
 
-**When:** Only use if agent-browser returns error or is unavailable.
+**When:** MANDATORY when validationScenario.type is "frontend" or "api".
+
+**Example workflow:**
+1. Start dev server: `npm run dev &`
+2. Navigate: `mcp__playwright__browser_navigate` to `http://localhost:3000/path`
+3. Screenshot: `mcp__playwright__browser_take_screenshot` for visual validation
+4. Check console: `mcp__playwright__browser_console_messages` with `level: "error"`
+5. **Cleanup:** `mcp__playwright__browser_close` (REQUIRED)
 
 ---
 
@@ -1125,7 +1114,7 @@ If `git commit` fails:
   - Tier 1: code-simplifier + code-review (ALL stories)
   - Tier 2: vercel-react-best-practices (React/Next.js), web-design-guidelines (all frontend)
   - Tier 3: rams (agent-decided)
-- **MUST RUN runtime validation** with agent-browser (primary) if story has `validationScenario`
+- **MUST RUN runtime validation** with Playwright MCP (direct calls) if story has `validationScenario`
 - **1 COMMIT per story:** `feat(STORY-ID)` includes implementation + prd.json + progress.md
 - MUST PUSH after each story (backup to remote immediately)
 - MUST UPDATE prd.json with: `passes: true`, `preCommit: [all executed passes]`, `notes: [skill usage]`
@@ -1148,7 +1137,7 @@ If `git commit` fails:
    - Tier 3: rams (if applicable)
    - Validation gate status
 6. **Step 5.7:** Print "RUNTIME VALIDATION" results (if validationScenario exists):
-   - Tool used (agent-browser or Playwright fallback)
+   - Tool used (Playwright MCP)
    - Type, scenario, expected vs actual results
    - Conclusion (PASSED/FAILED/SKIPPED)
 7. **Step 7.6:** Print full "✓ STORY COMPLETE" block with:
