@@ -879,9 +879,9 @@ During autonomous execution, Ralph has access to specialized skills for code qua
 | web-design-guidelines | UNUSED | UNUSED | **MANDATORY** | **MANDATORY** |
 | frontend-design | UNUSED | UNUSED | Agent-Decided | Agent-Decided |
 | rams | UNUSED | UNUSED | Agent-Decided | Agent-Decided |
-| agent-browser | UNUSED | UNUSED | MANDATORY* | MANDATORY* |
+| Playwright MCP | UNUSED | UNUSED | MANDATORY* | MANDATORY* |
 
-*When validationScenario exists
+*When validationScenario exists. Call `mcp__playwright__*` tools directly (never via Task tool).
 
 ### Tiered Quality Review System
 
@@ -899,8 +899,9 @@ During autonomous execution, Ralph has access to specialized skills for code qua
 
 ### Validation Tools
 
-- **Primary:** `agent-browser` - Faster browser automation with natural language
-- **Fallback:** Playwright MCP tools (if agent-browser unavailable)
+- **Playwright MCP** - Browser automation via direct `mcp__playwright__*` tool calls (ONLY method)
+
+⛔ Do NOT use Task tool for browser validation. Call Playwright MCP tools directly.
 
 See `prompt.md` for detailed invocation instructions.
 

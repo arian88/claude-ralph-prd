@@ -92,14 +92,15 @@ This document describes the JSON format that Ralph uses for autonomous PRD execu
 | `successCriteria` | array | List of success criteria to verify (e.g., `["No console errors", "Page renders correctly"]`) |
 
 **When to use each type:**
-- `frontend`: UI components, pages, visual changes. Uses **agent-browser** (primary) or Playwright MCP tools (fallback).
-- `api`: Backend endpoints, server actions. Uses CURL requests or agent-browser.
+- `frontend`: UI components, pages, visual changes. Uses Playwright MCP tools (direct calls).
+- `api`: Backend endpoints, server actions. Uses CURL requests or Playwright MCP.
 - `database`: Data persistence, migrations. Uses database queries.
 - `none`: No runtime validation needed (code-only changes).
 
-**Validation Tools:**
-- **Primary:** `/agent-browser` - Faster, natural language browser automation
-- **Fallback:** Playwright MCP tools - Used if agent-browser unavailable
+**Validation Tool:**
+- **Playwright MCP** - Browser automation via direct `mcp__playwright__*` tool calls (ONLY method)
+
+⛔ Do NOT use Task tool for browser validation. Call Playwright MCP tools directly.
 
 ### Important: `passes` Field Semantics
 
@@ -131,7 +132,7 @@ The `passes` field indicates whether a story is **fully complete**. It should ON
 5. ✓ `vercel-react-best-practices` executed
 6. ✓ `web-design-guidelines` executed
 7. ✓ `rams` executed OR documented reason for skip
-8. ✓ Runtime validation passed (if validationScenario exists) using agent-browser
+8. ✓ Runtime validation passed (if validationScenario exists) using Playwright MCP
 
 **For frontend-other stories, ALSO:**
 5. ✓ `web-design-guidelines` executed
@@ -161,7 +162,7 @@ The `passes` field indicates whether a story is **fully complete**. It should ON
 {
   "passes": true,
   "preCommit": ["code-simplifier", "vercel-react-best-practices", "web-design-guidelines", "code-review", "rams"],
-  "notes": "frontend-design used for PriorityBadge component. agent-browser validation passed."
+  "notes": "frontend-design used for PriorityBadge component. Playwright MCP validation passed."
 }
 ```
 
@@ -170,7 +171,7 @@ The `passes` field indicates whether a story is **fully complete**. It should ON
 {
   "passes": true,
   "preCommit": ["code-simplifier", "vercel-react-best-practices", "web-design-guidelines", "code-review"],
-  "notes": "rams skipped: no new visual elements, only logic changes. agent-browser validation passed."
+  "notes": "rams skipped: no new visual elements, only logic changes. Playwright MCP validation passed."
 }
 ```
 
@@ -346,7 +347,7 @@ The `passes` field indicates whether a story is **fully complete**. It should ON
       "Priority badges visible"
     ]
   },
-  "notes": "frontend-design used for PriorityBadge component. agent-browser validation passed. vercel-react: memoized component. web-design-guidelines: added aria-label. rams: improved color contrast."
+  "notes": "frontend-design used for PriorityBadge component. Playwright MCP validation passed. vercel-react: memoized component. web-design-guidelines: added aria-label. rams: improved color contrast."
 }
 ```
 
@@ -373,7 +374,7 @@ The `passes` field indicates whether a story is **fully complete**. It should ON
     "steps": "Click edit, change priority, verify save",
     "successCriteria": ["Priority updates correctly"]
   },
-  "notes": "rams skipped: using existing dropdown component, no new visual elements. agent-browser validation passed."
+  "notes": "rams skipped: using existing dropdown component, no new visual elements. Playwright MCP validation passed."
 }
 ```
 
