@@ -149,11 +149,12 @@ Working directory = project root.
    - Tier 1: code-simplifier, code-review (ALL stories)
    - Tier 2: vercel-react-best-practices, web-design-guidelines (frontend)
 7. **⛔ MANDATORY FOR FRONTEND: Run Browser Validation (Playwright MCP)**
+   - Pre-flight check: Verify Playwright MCP tools are available
    - Start dev server, navigate to relevant page
    - Take screenshot for visual assessment (UI/UX stories)
    - Perform minimal functional checks if needed
    - Check console for errors
-   - **DO NOT SKIP THIS STEP FOR FRONTEND STORIES**
+   - **IF BROWSER VALIDATION FAILS: Story FAILS. Do NOT commit. Do NOT fall back to code inspection.**
 8. Update prd.json: `passes: true`, `preCommit: [all mandatory passes for story type]`
 9. Append detailed log to progress.md
 10. **Single Commit (feat):** Stage implementation + prd.json + progress.md together
@@ -165,6 +166,8 @@ Working directory = project root.
 **⛔ NEVER set passes: true if mandatory passes for story type are missing.**
 **⛔ NEVER commit frontend stories without browser validation.**
 **⛔ NEVER skip browser validation for UI/UX changes. Launch the browser. See the output.**
+**⛔ NEVER fall back to "code inspection" if browser validation fails. The story FAILS.**
+**⛔ NEVER commit if Playwright MCP is unavailable. The story FAILS.**
 
 ---
 
@@ -253,6 +256,40 @@ Before committing, verify ALL mandatory passes for story type:
 **⛔ DO NOT SKIP BROWSER VALIDATION FOR FRONTEND STORIES.**
 
 If you implemented UI changes, you MUST launch a browser and verify the output. This validates that your code actually works in a real browser environment.
+
+---
+
+### Known Issues and Reliability
+
+**⚠️ Playwright MCP has known reliability issues. Be aware:**
+
+| Issue | Cause | Impact |
+|-------|-------|--------|
+| Tools become "undefined" | Bug in `@playwright/mcp@latest` | Browser actions fail silently |
+| "Browser session blocked" | MCP connection issues | Cannot launch browser |
+| Intermittent failures | Node environment issues | Works sometimes, fails others |
+
+**These issues are NOT an excuse to skip validation.** If Playwright MCP fails:
+1. The story FAILS
+2. You set `passes: false`
+3. You do NOT commit
+4. You do NOT fall back to "code inspection"
+
+---
+
+### Pre-Flight Check (REQUIRED)
+
+**Before attempting browser validation, verify Playwright MCP is available:**
+
+```
+mcp__playwright__browser_snapshot
+```
+
+If this call:
+- **Succeeds**: Proceed with validation
+- **Fails or returns undefined**: Log the error, set `passes: false`, do NOT commit
+
+**Do NOT proceed with "code inspection" as a fallback. There is no fallback.**
 
 ---
 
@@ -429,50 +466,6 @@ pkill -f "next dev" || pkill -f "npm run dev" || pkill -f "vite" || true
 
 ---
 
-### Validation Test Examples
-
-**Example 1: UI Styling Story**
-```
-Story: "Improve button styling on settings page"
-
-Validation:
-1. Navigate to /settings
-2. Take screenshot
-3. Assess: Button has correct colors, padding, hover state looks professional
-4. Check console: 0 errors
-5. Close browser, stop server
-```
-
-**Example 2: Form Functionality Story**
-```
-Story: "Add email validation to contact form"
-
-Validation:
-1. Navigate to /contact
-2. Take snapshot, find email input ref
-3. Type invalid email, submit form
-4. Verify error message appears
-5. Check console: 0 errors
-6. Close browser, stop server
-```
-
-**Example 3: Combined Visual + Functional Story**
-```
-Story: "Add dark mode toggle"
-
-Validation:
-1. Navigate to /settings
-2. Take screenshot (light mode baseline)
-3. Take snapshot, find toggle ref
-4. Click toggle
-5. Take screenshot (verify dark mode applied correctly)
-6. Assess: Colors inverted, contrast good, readable
-7. Check console: 0 errors
-8. Close browser, stop server
-```
-
----
-
 ### Validation Outcomes
 
 | Outcome | Action |
@@ -480,80 +473,40 @@ Validation:
 | Visual looks good AND no console errors | Set `passes: true`, proceed to commit |
 | Console errors found | Set `passes: false`, fix errors, re-validate |
 | Visual does not meet acceptance criteria | Set `passes: false`, fix issues, re-validate |
-| Browser or server fails to start | Set `passes: false`, log the issue |
+| Browser fails to launch | **Set `passes: false`, DO NOT COMMIT** |
+| Playwright MCP tools undefined | **Set `passes: false`, DO NOT COMMIT** |
+| Dev server fails to start | Set `passes: false`, fix build errors |
+| "Browser session blocked" error | **Set `passes: false`, DO NOT COMMIT** |
 
 ---
 
-### Critical Rules
+### When Validation Fails
 
-1. **NEVER skip browser validation for frontend stories.** This is the most common failure mode. If you changed UI, you MUST see it rendered in a real browser.
+If Playwright MCP fails (tools undefined, browser blocked, connection issues):
 
-2. **NEVER set `passes: true` without browser validation.** Looking at code is not validation. You must see the actual rendered output.
-
-3. **ALWAYS take screenshots for visual stories.** You cannot assess visual quality without seeing the UI.
-
-4. **ALWAYS check console for errors.** JavaScript errors indicate broken functionality.
-
-5. **⛔ ALWAYS close the browser after validation.** This prevents memory leaks. Call `browser_close` every single time.
-
-6. **ALWAYS stop the dev server after validation.** This prevents port conflicts.
-
-7. **Design appropriate tests.** Each validation should be targeted, minimal, and meaningful.
-
----
-
-### Anti-Patterns (DO NOT DO THIS)
+1. Log the error: `"Browser validation failed: [error]"`
+2. Set `passes: false` with `failureReason` in prd.json
+3. Update progress.md with failure details
+4. **Do NOT commit. Do NOT fall back to "code inspection".**
+5. End iteration. Story will retry next iteration.
 
 ```
-❌ BAD: "I implemented the styling changes. Moving to commit."
-   WHY: No browser launched, no visual verification
-
-❌ BAD: "The code looks correct. Setting passes: true."
-   WHY: Code review is not browser validation
-
-❌ BAD: "Browser validation skipped due to time constraints."
-   WHY: Validation is mandatory, not optional
-
-❌ BAD: "Launched browser and clicked around. Looks fine."
-   WHY: No screenshot, no specific assessment, no console check
-
-❌ BAD: [Forgot to call browser_close]
-   WHY: Memory leak, system degradation
+❌ INVALID: "Fallback Used: Code inspection" - This is NOT validation
+❌ INVALID: "PASSED (code verification)" - Code review ≠ browser validation
 ```
 
 ---
 
-### Proper Validation Output
+### Troubleshooting (For Humans)
 
+If Playwright MCP consistently fails, the default `@playwright/mcp@latest` has known bugs. Fix:
+
+```bash
+claude mcp remove playwright
+claude mcp add playwright -- npx -y @executeautomation/playwright-mcp-server
 ```
-▶ BROWSER VALIDATION
-  Story: US-003 - Add dark mode toggle
-  Type: Visual + Functional
 
-  [1] Starting dev server... ✓ localhost:3000
-  [2] Navigating to /settings... ✓
-  [3] Taking screenshot (light mode)... ✓
-  [4] Visual assessment:
-      - Settings page renders correctly
-      - Toggle component is visible and properly styled
-      - Layout is clean, spacing is appropriate
-  [5] Taking snapshot for interaction... ✓
-  [6] Clicking dark mode toggle... ✓
-  [7] Taking screenshot (dark mode)... ✓
-  [8] Visual assessment:
-      - Background changed to dark color
-      - Text is readable with proper contrast
-      - Toggle reflects active state
-      - No visual glitches or broken layouts
-  [9] Console errors: 0 ✓
-  [10] Closing browser... ✓
-  [11] Stopping dev server... ✓
-
-  ✓ VALIDATION PASSED
-    - Visual: Meets acceptance criteria
-    - Functional: Toggle works correctly
-    - Console: No errors
-```
+**Agent cannot fix MCP config.** Agent's job: attempt validation → if fails → mark story FAILED → do NOT commit.
 
 ---
 
